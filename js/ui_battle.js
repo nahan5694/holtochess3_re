@@ -3753,24 +3753,62 @@ function handleBattleExit() {
         addReward(firstClearReward, false);
       }
 
-      // Bonus issue reward if issue points > 0
-      if (ctx.activeIssues && ctx.activeIssues.length > 0 && stage.Stage_Reward_Bonus) {
+            // Bonus issue reward based on Issue Point
+      if (ctx.activeIssues && ctx.activeIssues.length > 0 && stage.Stage_Reward) {
         let totalPts = 0;
         const allIssues = GameData.issue || [];
+
+        // Calculate total Issue Point
         ctx.activeIssues.forEach(id => {
           const iss = allIssues.find(i => i.Issue_ID === id);
-          if (iss) totalPts += Number(iss.Issue_Point || 0);
+          if (iss) {
+            totalPts += Number(iss.Issue_Point || 0);
+          }
         });
+
         if (totalPts > 0) {
-          const parts = stage.Stage_Reward_Bonus.split(',');
+          const parts = stage.Stage_Reward.split(',');
+
           for (let i = 0; i < parts.length; i += 2) {
             const itemId = parts[i].trim();
-            const count = (parseInt(parts[i + 1]) || 1) * totalPts;
-            if (itemId) {
-              PlayerData.items[itemId] = (PlayerData.items[itemId] || 0) + count;
+            const baseAmount = parseInt(parts[i + 1]) || 1;
+
+            if (!itemId) continue;
+
+            let bonusCount = 0;
+
+            // Bulk rewards (e.g. Credits):
+            // Issue Point 1P = +3% of the base reward
+            if (baseAmount > 1) {
+              bonusCount = Math.floor(baseAmount * (totalPts * 0.03));
+            }
+            // Single-item rewards (e.g. rare materials):
+            // Issue Point 1P = +4% chance to obtain +1
+            else {
+              const bonusChance = totalPts * 0.04;
+              const guaranteedBonus = Math.floor(bonusChance);
+              const randomChance = bonusChance % 1;
+
+              bonusCount += guaranteedBonus;
+
+              if (Math.random() < randomChance) {
+                bonusCount += 1;
+              }
+            }
+
+            // Grant bonus reward
+            if (bonusCount > 0) {
+              PlayerData.items[itemId] = (PlayerData.items[itemId] || 0) + bonusCount;
+
               const existing = rewardItems.find(r => r.id === itemId);
-              if (existing) existing.count += count;
-              else rewardItems.push({ id: itemId, count });
+              if (existing) {
+                existing.count += bonusCount;
+              } else {
+                rewardItems.push({
+                  id: itemId,
+                  count: bonusCount
+                });
+              }
             }
           }
         }
