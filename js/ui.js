@@ -1388,58 +1388,52 @@ window.openHelpModal = openHelpModal;
     btnSubmitDevCode.addEventListener("click", () => {
       const code = inputDevCode.value.trim();
       if (code === "0001") {
-        if (!PlayerData.claimedDevCodes) PlayerData.claimedDevCodes = {};
-        if (PlayerData.claimedDevCodes['0001']) {
-          alert("이미 사용된 개발자 코드입니다.");
-          return;
-        }
-        PlayerData.claimedDevCodes['0001'] = true;
-        if (!PlayerData.items) PlayerData.items = {};
-        PlayerData.items['Item_019'] = (PlayerData.items['Item_019'] || 0) + 10;
-        inputDevCode.value = "";
-        alert("🍙 개발자 코드가 인증되었습니다!\n오니기리 10개가 창고에 지급되었습니다.");
-        updateTopCurrencies();
-        if (typeof window.renderWarehouseItems === 'function') {
-          window.renderWarehouseItems();
-        }
-        if (typeof window.savePlayerData === 'function') {
-          window.savePlayerData();
-        }
-      } else if (code === "8080") {
-        if (!PlayerData.items) PlayerData.items = {};
-        PlayerData.items['Item_001'] = (PlayerData.items['Item_001'] || 0) + 1600;
-        inputDevCode.value = "";
-        alert("💎 개발자 코드가 인증되었습니다!\n다이아 1,600개가 지급되었습니다.");
-        updateTopCurrencies();
-        if (typeof window.savePlayerData === 'function') {
-          window.savePlayerData();
-        }
+      // 1. 이미 사용했는지 검사 (중복 수령 방지 유지)
+      if (!PlayerData.claimedDevCodes) PlayerData.claimedDevCodes = {};
+      if (PlayerData.claimedDevCodes['0001']) {
+        alert("이미 사용된 개발자 코드입니다.");
+        return;
+      }
 
-      } else if (code === "0009") {
-        if (!PlayerData.claimedDevCodes) PlayerData.claimedDevCodes = {};
+      // 2. [0001] 코드 보상 목록 정의 (여기서 자유롭게 수정/추가하세요)
+      const code0001Rewards = {
+        'Item_001': 12000,
+        'Item_002': 500000,
+        'Item_003': 100,
+        'Item_004': 10,
+        'Item_005': 500,
+        'Item_006': 100,
+        'Item_008': 1000,
+        'Item_009': 50,
+        'Item_010': 100,
+        'Item_019': 100,
+        'Item_022': 25,
+        'Item_025': 25,
+        'Item_028': 25,
+        'Item_031': 25,
+        'Item_034': 25,
+        'Item_037': 25,
+        'Item_041': 50,        
+      };
 
-        if (PlayerData.claimedDevCodes['0009']) {
-          alert("이미 사용된 개발자 코드입니다.");
-          return;
-        }
+      // 3. 보상 아이템 지급 처리
+      if (!PlayerData.items) PlayerData.items = {};
+      for (const [itemId, amount] of Object.entries(code0001Rewards)) {
+        PlayerData.items[itemId] = (PlayerData.items[itemId] || 0) + amount;
+      }
 
-        PlayerData.claimedDevCodes['0009'] = true;
+      // 4. 사용 완료 처리 및 UI/데이터 업데이트
+      PlayerData.claimedDevCodes['0001'] = true;
+      inputDevCode.value = "";
+      alert("사용자 데이터 초기화에 대한 보상이 지급되었습니다. 불편을 드려 진심으로 죄송합니다.");
 
-        if (!PlayerData.items) PlayerData.items = {};
-        PlayerData.items['Item_010'] = (PlayerData.items['Item_010'] || 0) + 100;
-
-        inputDevCode.value = "";
-        alert("🧩 개발자 코드가 인증되었습니다!\n코어 조각 100개가 창고에 지급되었습니다.");
-
-        updateTopCurrencies();
-
-        if (typeof window.renderWarehouseItems === 'function') {
-          window.renderWarehouseItems();
-        }
-
-        if (typeof window.savePlayerData === 'function') {
-          window.savePlayerData();
-        }
+      updateTopCurrencies();
+      if (typeof window.renderWarehouseItems === 'function') {
+        window.renderWarehouseItems();
+      }
+      if (typeof window.savePlayerData === 'function') {
+        window.savePlayerData();
+      }
       } else if (code === "0782") {
         if (!PlayerData.items) PlayerData.items = {};
         const devRewards = {
