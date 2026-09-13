@@ -2753,7 +2753,7 @@ export function updateBattleCharInfoStats(battleChar, mode = 'standard') {
     let core = equippedCoreUid ? (PlayerData.cores || []).find(c => c.uid === equippedCoreUid) : null;
     if (core) {
       const map = {
-        '청초': 'Seiso_icon.png', '쿨': 'Cool_icon.png', '광인': 'Genin_icon.png',
+        '청초': 'Seiso_icon.png', '쿨': 'Cool_icon.png', '게닌': 'Genin_icon.png',
         '아티스트': 'Artist_icon.png', '큐트': 'Cute_icon.png', '광기': 'Crazy_icon.png', '에로': 'Ero_icon.png'
       };
       const icon = map[core.element] || 'Seiso_icon.png';
@@ -3433,7 +3433,7 @@ export function updateCharInfoStats(char, level, star, isMyChar = false, hideGro
                   maxTier = Math.max(...tiers);
               }
                             const map = {
-                  '청초': 'Seiso_icon.png', '쿨': 'Cool_icon.png', '광인': 'Genin_icon.png',
+                  '청초': 'Seiso_icon.png', '쿨': 'Cool_icon.png', '게닌': 'Genin_icon.png',
                   '아티스트': 'Artist_icon.png', '큐트': 'Cute_icon.png', '광기': 'Crazy_icon.png', '에로': 'Ero_icon.png'
               };
               const icon = map[core.element] || 'Seiso_icon.png';
