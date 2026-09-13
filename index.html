@@ -1,0 +1,2349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Holotochess 3</title>
+  <link rel="stylesheet" href="style.css?v=004276">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script type="module" src="js/ui_studio.js?v=004276" charset="utf-8"></script>
+  <script type="module" src="js/ui_office.js?v=004276" charset="utf-8"></script>
+  <script type="module" src="js/main.js?v=004276" charset="utf-8"></script>
+  <script type="module" src="js/battle.js?v=004276" charset="utf-8"></script>
+  <script>
+    window.addEventListener('error', function(e) {
+      const el = document.getElementById('init-status-text');
+      if (el) el.innerHTML += '<br><span style="color:red;font-size:12px;">JS Error: ' + e.message + ' in ' + e.filename + ':' + e.lineno + '</span>';
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      const el = document.getElementById('init-status-text');
+      if (el) el.innerHTML += '<br><span style="color:red;font-size:12px;">Promise Error: ' + e.reason + '</span>';
+    });
+  </script>
+  <script type="module" src="js/shop.js?v=004276" charset="utf-8"></script>
+  
+
+</head>
+<body>
+  
+<!-- === 로그인 테마곡 BGM === -->
+<audio id="bgm-login" loop>
+  <!-- 아래 src 주소를 실제 깃허브에 올린 mp3 파일 주소로 꼭 변경하세요! -->
+  <source src="https://github.com/nahan5694/holtochess3/raw/refs/heads/main/OP_Color%20Rise%20Harmony.mp3" type="audio/mpeg">
+</audio>
+
+<!-- === 메인 화면 테마곡 BGM === -->
+<audio id="bgm-main">
+  <source src="https://github.com/nahan5694/holtochess3/raw/refs/heads/main/Main_Shiny%20Smily%20Story_Music%20Box.mp3" type="audio/mpeg">
+</audio>
+
+<!-- === 전투 테마곡 BGM === -->
+<audio id="bgm-battle"></audio>
+
+<!-- === 초기 데이터 로딩 및 클릭 유도 오버레이 === -->
+<div id="init-overlay">
+  <div id="init-status-text">데이터라인 연결 대기중...</div>
+  <div id="init-sub-text">화면을 클릭하여 시스템을 시작하세요</div>
+</div>
+
+<!-- 화면 전환용 화이트 아웃 오버레이 -->
+<div id="transition-overlay"></div>
+<!-- 빠른 화면 전환용 와이프 오버레이 -->
+<div id="wipe-overlay"></div>
+
+<!-- 로그인 씬 -->
+<div id="login-scene" class="scene active">
+  <!-- 배경 이미지 영역 (높이를 줄임) -->
+  <div id="login-bg" class="image-wrapper">
+    <!-- 하단 경계를 흐릿하게 만드는 그라데이션 오버레이 -->
+    <div class="gradient-fade"></div>
+  </div>
+  
+  <!-- 버튼과 파티클을 감싸는 래퍼 -->
+  <div class="button-container">
+    <!-- 파티클 이펙트 요소들 -->
+    <span class="sparkle s1"></span>
+    <span class="sparkle s2"></span>
+    <span class="sparkle s3"></span>
+    <span class="sparkle s4"></span>
+    <span class="sparkle s5"></span>
+    
+    <!-- 초기 상태를 비활성화(disabled)로 변경하고 로딩 텍스트 추가 -->
+    <button id="btn-connect" disabled>로딩중...</button>
+  </div>
+
+  <!-- 5시 방향 계정 초기화 버튼 -->
+  <button id="btn-account-reset" class="circle-btn" title="계정 초기화">🔄</button>
+  <!-- 7시방향 버전 표시 -->
+  <div style="position: absolute; bottom: 20px; left: 20px; font-weight: bold; color: #333; text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff; z-index: 10;">
+    버전: v0.004.275
+  </div>
+</div>
+
+<!-- 메인 화면 씬 -->
+<div id="main-scene" class="scene">
+  
+  <!-- 1 & 2. 세로 높이에 맞춘 메인 이미지 컨테이너 -->
+  <div class="main-image-container">
+    <!-- 캐릭터 전환 버튼 -->
+    <div id="btn-cycle-main-char" onmouseenter="this.style.background='rgba(255,255,255,0.3)'; this.querySelector('.cycle-arrow').style.opacity='1';" onmouseleave="this.style.background='transparent'; this.querySelector('.cycle-arrow').style.opacity='0';" style="position:absolute; top:0; left:0; width:60px; height:100vh; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:50; transition: background 0.3s;">
+        <div class="cycle-arrow" style="font-size: 2.5rem; color: #333; opacity: 0; transition: opacity 0.3s; text-shadow: 0 0 5px rgba(255,255,255,0.8);">◀</div>
+    </div>
+    <!-- src 하드코딩을 없애고 JS에서 제어할 수 있도록 id 부여 -->
+    <img id="main-character-img" src="" alt="메인 캐릭터" class="main-character-img">
+    <!-- 3. 이미지 끝단에 딱 붙는 투명화 그라데이션 -->
+    <div class="right-fade"></div>
+  </div>
+
+  <!-- 상단 상태바 -->
+  <div class="top-bar">
+    <!-- 11시 상단 그룹 (계정 정보와 시간 시스템을 각각의 패널로 분리) -->
+    <div class="top-left-group">
+      
+      <!-- 1. 계정 정보 래퍼 -->
+      <div class="player-info-wrapper" style="display: flex; align-items: center; gap: 10px;">
+        <div class="player-info glass-panel">
+          <div class="level-circle" id="player-level-text" title="현재 경험치: 0 / 1200" style="cursor: help;">1</div>
+          <div class="player-text">
+            <span class="name" id="player-name-text">CometP</span>
+            <span class="uid" id="player-uid-text">UID: -</span>
+          </div>
+        </div>
+        <!-- ✨ 메인 캐릭터 변경 버튼 (계정 정보 패널 밖으로 분리) -->
+        <button id="btn-change-main" title="메인 캐릭터 변경">👤</button>
+        <button id="btn-change-bgm" title="BGM 변경" style="background: #ffffff; border: 2px solid #00a8ff; color: #00a8ff; border-radius: 50%; width: 46px; height: 46px; display: flex; justify-content: center; align-items: center; font-size: 1.3rem; cursor: pointer; margin-left: 5px; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0, 168, 255, 0.15);">🎵</button>
+        <button id="btn-food-recovery" title="컨디션 회복 (음식 먹이기)" style="background: #ffffff; border: 2px solid #f97316; color: #f97316; border-radius: 50%; width: 46px; height: 46px; display: flex; justify-content: center; align-items: center; font-size: 1.3rem; cursor: pointer; margin-left: 5px; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(249, 115, 22, 0.15);">🍖</button>
+      </div>
+      
+      <!-- 2. 시간 시스템 패널 -->
+      <div class="time-system-panel glass-panel">
+        <span class="clock-icon">🕒</span>
+        <div class="time-gauge-bg">
+          <div class="time-gauge-fill" id="time-gauge-fill"></div>
+        </div>
+        <span class="time-text" id="time-text">300s</span>
+        <button id="btn-ap-collect" class="circle-btn" style="width: 24px; height: 24px; font-size: 14px; margin-left: 5px; line-height: 1; padding: 0;">+</button>
+      </div>
+      <!-- 3. AP 시스템 패널 -->
+      <div class="time-system-panel glass-panel" style="display: flex; justify-content: space-between; position: relative;">
+        <div style="display: flex; align-items: center;">
+          <span style="font-size: 1.2rem; margin-right: 5px;">⚡</span>
+          <span class="time-text" id="ap-text" style="width: auto; font-weight: bold; color: #f1c40f; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0px 2px 4px rgba(0,0,0,0.8);">0 / 120</span>
+        </div>
+        <button id="btn-ap-to-ticket" class="circle-btn" style="width: 24px; height: 24px; font-size: 16px; margin-left: 5px; line-height: 1; padding: 0; background: #3498db; color: white;">+</button>
+      </div>
+    </div>
+    
+    <!-- 12시 재화 정보 (아이템 시트 연동) -->
+    <div class="currency-container">
+      <!-- Item_003: 소탕권 -->
+      
+      <!-- Item_041: AP 티켓 -->
+      <div class="currency glass-panel" data-item-id="Item_041" style="cursor: pointer;">
+        <img class="currency-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/icon/ap_ticket.png" alt="AP 티켓" onerror="this.src='https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%EC%86%8C%ED%83%95%EA%B6%8C.png'">
+        <span class="currency-amount">0</span>
+        <button id="btn-ticket-to-ap" class="circle-btn" style="width: 22px; height: 22px; font-size: 14px; margin-left: 6px; line-height: 1; padding: 0; background: #3498db; color: white;">+</button>
+      </div>
+      <div class="currency glass-panel" data-item-id="Item_003">
+        <img class="currency-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%EC%86%8C%ED%83%95%EA%B6%8C.png" alt="소탕권">
+        <span class="currency-amount">0</span>
+      </div>
+      <!-- Item_002: 크레딧 -->
+      <div class="currency glass-panel" data-item-id="Item_002">
+        <img class="currency-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%ED%81%AC%EB%A0%88%EB%94%A7.png" alt="크레딧">
+        <span class="currency-amount">0</span>
+      </div>
+      <!-- Item_001: 홀로다이아 -->
+      <div class="currency glass-panel" data-item-id="Item_001">
+        <img class="currency-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%ED%99%80%EB%A1%9C%EB%8B%A4%EC%9D%B4%EC%95%84.png" alt="홀로다이아">
+        <span class="currency-amount">0</span>
+      </div>
+    </div>
+    
+    <!-- 시스템 아이콘 -->
+    <div class="system-icons">
+      <button class="circle-btn" id="btn-options">⚙️</button>
+    </div>
+  </div>
+
+  <!-- 3. 7시 방향 신규 스페셜 캐스팅 배너 -->
+  <div id="main-special-banner" style="position: absolute; bottom: 30px; left: 30px; width: 280px; height: 110px; border-radius: 12px; background-color: #bce3ff; background-size: cover; background-position: center; border: 3px solid #005ce6; cursor: pointer; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10;">
+     <div class="gacha-banner-glaze" style="width: 50%; height: 100%;"></div>
+     <div style="position: absolute; bottom: 5px; right: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; font-weight: bold;">진행중인 스페셜!</div>
+  </div>
+
+  <!-- 우측 메인 메뉴 -->
+<div class="right-menu">
+  
+  <!-- 그룹 1 -->
+  <div class="menu-group">
+    <button class="menu-btn btn-level-1" data-target="scene-1">메인 스토리 진행</button>
+    <div class="menu-row">
+      <button class="menu-btn btn-level-2" data-target="scene-2">리허설 스테이지</button>
+      <button class="menu-btn btn-level-2" data-target="scene-3">라이브 스테이지</button>
+    </div>
+    <div class="menu-row">
+      <!-- PVP는 data-target을뺐고, locked 클래스를 추가했습니다 -->
+      <button class="menu-btn locked" style="width: 100%;">PVP (추가 예정)</button>
+    </div>
+  </div>
+  
+  <div class="menu-divider"></div>
+  
+  <!-- 그룹 2 -->
+  <div class="menu-group">
+    <div class="menu-row">
+      <button class="menu-btn btn-level-1" data-target="scene-deck">덱 편성</button>
+      <button class="menu-btn" data-target="scene-7">키즈나</button>
+    </div>
+    <div class="menu-row">
+      <button class="menu-btn" data-target="scene-5">보유 홀로멤</button>
+      <button class="menu-btn" data-target="scene-unowned">미보유 홀로멤</button>
+    </div>
+  </div>
+  
+  <div class="menu-divider"></div>
+  
+  <!-- 그룹 3: 유틸 & 상점 -->
+  <div class="menu-group">
+    <div class="menu-row">
+      <button class="menu-btn" data-target="scene-8">창고</button>
+      <button class="menu-btn" data-target="scene-core">코어</button>
+      <button class="menu-btn" data-target="scene-shop">상점</button>
+    </div>
+    <div class="menu-row">
+      <button class="menu-btn btn-level-3" data-target="scene-10">스튜디오</button>
+      <button class="menu-btn btn-level-3" data-target="scene-11">사무소</button>
+    </div>
+    
+  </div>
+
+  <div class="menu-divider"></div>
+  
+  <!-- 그룹 4: 캐스팅 & 오디션 -->
+  <div class="menu-group">
+      <div class="menu-row">
+        <button class="menu-btn btn-level-1" data-target="scene-12">캐스팅</button>
+        <button class="menu-btn btn-level-3" data-target="scene-13">오디션</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+  
+  <!-- === [신규 서브 씬 13개 추가] === -->
+<!-- HTML 파일 맨 아래, #main-scene 바깥에 아래 코드를 복사해서 붙여넣으세요 -->
+
+<!-- === [신규 서브 씬 13개 추가] === -->
+<div id="scene-core" class="scene">
+    <div class="core-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; width: 100%; box-sizing: border-box;">
+        <!-- B: Filters -->
+                <div class="core-filter-bar" style="display: flex; gap: 10px; align-items: center;">
+
+
+            <select id="core-filter-type" class="core-select glass-panel" style="color: #000; font-weight: bold; padding: 5px 10px;">
+                <option value="all">전체보기</option>
+                <option value="청초">청초</option>
+                <option value="게닌">게닌</option>
+                <option value="쿨">쿨</option>
+                <option value="아티스트">아티스트</option>
+                <option value="큐트">큐트</option>
+                <option value="광기">광기</option>
+                <option value="에로">에로</option>
+            </select>
+            <select id="core-sort-type" class="core-select glass-panel" style="color: #000; font-weight: bold; padding: 5px 10px;">
+                <option value="desc">높은순정렬</option>
+                <option value="asc">낮은순정렬</option>
+            </select>
+            <button id="core-filter-locked" class="filter-icon-btn glass-panel" title="잠금">🔒</button>
+            <button id="core-filter-favorite" class="filter-icon-btn glass-panel" title="즐겨찾기">⭐</button>
+        </div>
+        
+        <!-- A: Nav Buttons & Fragment Display (1 o'clock) -->
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <div id="core-fragment-display" class="glass-panel" style="display: flex; align-items: center; gap: 5px; padding: 5px 15px; font-weight: bold; color: #333; height: 35px; box-sizing: border-box;">
+                <img src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%EC%BD%94%EC%96%B4%EC%A1%B0%EA%B0%81.png" style="width: 24px; height: 24px;">
+                <span id="core-fragment-count">0</span>
+            </div>
+            <div class="top-nav" style="position: static; padding: 0;">
+          <button class="circle-btn nav-btn btn-help">?</button>
+          <button class="circle-btn nav-btn btn-back">↩</button>
+          <button class="circle-btn nav-btn btn-home">🏠</button>
+        </div>
+        </div>
+    </div>
+    
+    <div class="core-container" style="display: flex; flex-direction: row; height: calc(100% - 70px); width: 85%; max-width: 1600px; margin: 0 auto; padding: 0 20px 20px 20px; gap: 30px;">
+        
+        <!-- C: Left Panel (List) -->
+        <div class="core-left-panel" style="flex: 1; display: flex; flex-direction: column;">
+            <div id="core-list-container" class="core-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; padding-right: 5px;">
+                <!-- 코어 아이템 렌더링 -->
+            </div>
+            
+            <button id="btn-craft-core" style="width: 100%; padding: 15px; font-size: 1.2rem; font-weight: bold; cursor: pointer; text-align: center; background: linear-gradient(135deg, #00d2d3, #0984e3); color: white; border: none; border-radius: 12px; box-shadow: 0 4px 10px rgba(9, 132, 227, 0.3);">신규 코어 제작</button>
+        </div>
+        
+        <!-- D: Right Panel (Detail) -->
+        <div id="core-detail-panel" class="core-right-panel glass-panel" style="display:none; flex: 1.2; flex-direction: column; padding: 30px; position: relative;">
+            
+            <div class="core-detail-actions" style="position: absolute; top: 15px; right: 15px; display: flex; gap: 10px;">
+                <button id="btn-core-favorite" class="icon-toggle-btn glass-panel" style="font-size: 1.2rem; padding: 8px; cursor: pointer;">⭐</button>
+                <button id="btn-core-lock" class="icon-toggle-btn glass-panel" style="font-size: 1.2rem; padding: 8px; cursor: pointer;">🔒</button>
+            </div>
+            
+            <div class="core-detail-header" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
+                <div id="core-detail-icon" class="core-detail-icon" style="width: 120px; height: 120px; margin-bottom: 15px; background-size: contain; background-repeat: no-repeat; background-position: center; border: none;"></div>
+                <h2 id="core-detail-name" style="margin: 0; color: #333; font-size: 1.8rem; font-weight: bold;">큐트의 코어</h2>
+            </div>
+            
+            <hr style="width: 100%; border: none; border-top: 2px solid #e9ecef; margin-bottom: 20px;">
+            
+            <div class="core-detail-body" style="flex: 1; overflow-y: auto;">
+                <div id="core-slots-container" class="core-slots-container" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- 코어 슬롯 렌더링 -->
+                </div>
+            </div>
+            
+            <div id="core-total-value" class="core-total-value" style="position: absolute; bottom: 20px; right: 30px; font-size: 1.4rem; font-weight: bold; color: #0984e3;">코어 밸류 : 0</div>
+            
+        </div>
+    </div>
+</div>
+  <div id="scene-1" class="scene" style="padding-top: 40px;">
+  
+  
+  <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  <div style="width: 95%; max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,0.9); padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); height: 85vh; display: flex; flex-direction: column;">
+    <h2 style="margin-bottom: 20px; color: #333; text-align: center;">메인 스토리</h2>
+    <div id="main-story-list" style="flex: 1; overflow-y: auto; padding-right: 10px;">
+      <!-- Stages will be rendered here -->
+    </div>
+  </div>
+</div>
+
+<div id="scene-2" class="scene" style="padding-top: 40px;">
+  <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+
+  <!-- Rehearsal Currency Header -->
+  <div style="display:flex; justify-content:flex-end; gap:25px; padding: 10px 20px 0; margin-bottom:5px;">
+    <!-- AP Bar -->
+    <div style="display:flex; align-items:center;">
+        <div class="glass-panel" style="padding: 5px 15px 5px 15px; border-radius: 20px; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; position: relative; gap: 8px;">
+            <span style="font-size: 1.2rem;">⚡</span>
+            <span id="rehearsal-ap-text" style="font-weight: 900; font-size: 1.1rem; color: #fff; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0px 2px 4px rgba(0,0,0,0.8);">0 / 120</span>
+        </div>
+    </div>
+    
+    <!-- AP Ticket -->
+    <div style="display:flex; align-items:center;">
+        <div class="currency glass-panel" data-item-id="Item_041" style="cursor: pointer; position: relative; padding: 5px 15px 5px 35px; border-radius: 20px;" onclick="document.getElementById('ticket-to-ap-modal').classList.add('show')">
+            <img class="currency-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/icon/ap_ticket.png" alt="AP 티켓" style="position: absolute; left: -15px; width: 45px; height: 45px; z-index: 2;" onerror="this.src='https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%EC%86%8C%ED%83%95%EA%B6%8C.png'">
+            <span class="currency-amount" style="font-weight: 900; font-size: 1.1rem; color: #fff; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; z-index: 1; position: relative;">0</span>
+        </div>
+        <button onclick="document.getElementById('ticket-to-ap-modal').classList.add('show')" class="circle-btn" style="width: 24px; height: 24px; font-size: 16px; margin-left: 5px; line-height: 1; padding: 0; background: #3498db; color: white;">+</button>
+    </div>
+    
+    <!-- Skip Ticket -->
+    <div class="currency glass-panel" data-item-id="Item_003" style="cursor: pointer; position: relative; padding: 5px 15px 5px 35px; border-radius: 20px;">
+        <img class="currency-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%EC%86%8C%ED%83%95%EA%B6%8C.png" alt="소탕권" style="position: absolute; left: -15px; width: 45px; height: 45px; z-index: 2;">
+        <span class="currency-amount" style="font-weight: 900; font-size: 1.1rem; color: #fff; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; z-index: 1; position: relative;">0</span>
+    </div>
+  </div>
+  
+  <div style="width: 95%; max-width: 1400px; margin: 0 auto; background: rgba(255,255,255,0.9); padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); height: 85vh; display: flex; flex-direction: column;">
+    <!-- 1. 카테고리 선택 -->
+    
+    
+    <div id="rehearsal-categories" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 0 40px; box-sizing: border-box;">
+      <h2 style="margin-bottom: 40px; color: #2c3e50; font-size: 2.5rem; font-weight: 800; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">리허설 카테고리 선택</h2>
+      <div style="display: flex; flex-direction: row; gap: 20px; width: 100%; max-width: 1200px; height: 60vh;">
+        <div class="rehearsal-card-tall" onclick="openRehearsalSub('크레딧')" style="background: linear-gradient(180deg, #f1c40f, #d35400);">
+            <div class="rh-title">크레딧</div>
+        </div>
+        <div class="rehearsal-card-tall" onclick="openRehearsalSub('경험치')" style="background: linear-gradient(180deg, #2ecc71, #27ae60);">
+            <div class="rh-title">경험치</div>
+        </div>
+        <div class="rehearsal-card-tall" onclick="openRehearsalSub('홀로코인')" style="background: linear-gradient(180deg, #3498db, #2980b9);">
+            <div class="rh-title">홀로코인</div>
+        </div>
+        <div class="rehearsal-card-tall" onclick="openRehearsalSub('아이돌의 혼')" style="background: linear-gradient(180deg, #9b59b6, #8e44ad);">
+            <div class="rh-title">아이돌의 혼</div>
+        </div>
+        <div class="rehearsal-card-tall" onclick="openRehearsalSub('코어조각')" style="background: linear-gradient(180deg, #e74c3c, #c0392b);">
+            <div class="rh-title">코어조각</div>
+        </div>
+        <div class="rehearsal-card-tall" onclick="openRehearsalSub('뱃지')" style="background: linear-gradient(180deg, #34495e, #2c3e50);">
+            <div class="rh-title">뱃지</div>
+        </div>
+        <div class="rehearsal-card-tall" onclick="openRehearsalSub('재료')" style="background: linear-gradient(180deg, #e67e22, #d35400);">
+            <div class="rh-title">재료</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 2. 리허설 스테이지 리스트 -->
+    <div id="rehearsal-badges" class="hidden" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+      <h2 style="margin-bottom: 30px; color: #2c3e50; font-size: 2.2rem; font-weight: 800;">세부 카테고리 선택</h2>
+      <div id="badges-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; width: 100%; max-width: 1000px; margin-bottom: 30px;">
+        <!-- Filled dynamically but keeping the default ones styled if hardcoded -->
+        <div class="rehearsal-card" onclick="openRehearsalSub('미스')" style="background: #3498db; height: 80px; font-size: 1.2rem;">미스</div>
+        <div class="rehearsal-card" onclick="openRehearsalSub('프로미스')" style="background: #e67e22; height: 80px; font-size: 1.2rem;">프로미스</div>
+        <div class="rehearsal-card" onclick="openRehearsalSub('어드벤트')" style="background: #9b59b6; height: 80px; font-size: 1.2rem;">어드벤트</div>
+        <div class="rehearsal-card" onclick="openRehearsalSub('저스티스')" style="background: #2ecc71; height: 80px; font-size: 1.2rem;">저스티스</div>
+        <div class="rehearsal-card" onclick="openRehearsalSub('게이머즈')" style="background: #f1c40f; color: #333; height: 80px; font-size: 1.2rem;">게이머즈</div>
+        <div class="rehearsal-card" onclick="openRehearsalSub('미코멧')" style="background: #e74c3c; height: 80px; font-size: 1.2rem;">미코멧</div>
+        <div class="rehearsal-card" onclick="openRehearsalSub('후부미오')" style="background: #fd79a8; height: 80px; font-size: 1.2rem;">후부미오</div>
+      </div>
+      <button class="cancel-btn" style="padding: 15px 40px; font-size: 1.2rem; border-radius: 30px;" onclick="document.getElementById('rehearsal-badges').classList.add('hidden'); document.getElementById('rehearsal-categories').classList.remove('hidden');">뒤로 가기</button>
+    </div>
+    <!-- 3. 스테이지 리스트 -->
+    <div id="rehearsal-selection" class="hidden" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 id="rehearsal-selection-title" style="color: #333; margin: 0;">스테이지 선택</h2>
+        <button id="btn-rehearsal-back" class="cancel-btn">뒤로가기</button>
+      </div>
+      <div id="rehearsal-stage-list" style="flex: 1; overflow-y: auto; padding-right: 10px;">
+        <!-- Stages will be rendered here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scene-3" class="scene" style="background: url('https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/bg/bg_live.png') no-repeat center center/cover;">
+  <button class="btn-giveup-live" onclick="giveUpLive()" style="display:none; position:absolute; top:20px; left:50px; font-size:1.2rem; background:#e74c3c; color:#fff; border:none; border-radius:8px; padding:10px 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-weight:bold; cursor:pointer; z-index:100;">라이브 종료</button>
+  
+  <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  
+  <div class="scene-title" style="display:none;">라이브 스테이지</div>
+
+  <div id="live-entry-container" style="width: 90%; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; height: calc(100vh - 100px); gap: 40px;">
+    <h2 style="color: #fff; text-shadow: 2px 2px 4px #000; font-size: 3rem; margin-bottom: 20px;">라이브 모드 선택</h2>
+    <div style="display: flex; gap: 30px; justify-content: center; flex-wrap: wrap;">
+        <!-- 기념 라이브 -->
+        <div class="glass-panel" style="width: 320px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; padding: 40px 20px; box-sizing: border-box; justify-content: space-between;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 10px 20px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';" onclick="startLiveMode('memorial')">
+            <div>
+                <h3 style="color: #27ae60; font-size: 2.2rem; margin-bottom: 15px; text-align: center;">기념 라이브</h3>
+                <p style="color: #444; text-align: center; font-size: 1.1rem; line-height: 1.5; margin-bottom: 30px;">권장 레벨: 30 (★1)<br><br>가볍게 즐길 수 있는<br>기본 라이브입니다.</p>
+            </div>
+            <button class="execute-btn" style="background: #27ae60; font-size: 1.3rem; padding: 12px 30px; width: 80%;">입장하기</button>
+        </div>
+        <!-- 현장 라이브 -->
+        <div class="glass-panel" style="width: 320px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; padding: 40px 20px; box-sizing: border-box; justify-content: space-between;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 10px 20px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';" onclick="startLiveMode('field')">
+            <div>
+                <h3 style="color: #2980b9; font-size: 2.2rem; margin-bottom: 15px; text-align: center;">현장 라이브</h3>
+                <p style="color: #444; text-align: center; font-size: 1.1rem; line-height: 1.5; margin-bottom: 30px;">권장 레벨: 60 (★2)<br><br>숙련된 프로듀서를 위한<br>라이브입니다.</p>
+            </div>
+            <button class="execute-btn" style="background: #2980b9; font-size: 1.3rem; padding: 12px 30px; width: 80%;">입장하기</button>
+        </div>
+        <!-- 홀로페스 -->
+        <div class="glass-panel" style="width: 320px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; padding: 40px 20px; box-sizing: border-box; justify-content: space-between;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 10px 20px rgba(0,0,0,0.3)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';" onclick="startLiveMode('holofes')">
+            <div>
+                <h3 style="color: #8e44ad; font-size: 2.2rem; margin-bottom: 15px; text-align: center;">홀로페스</h3>
+                <p style="color: #444; text-align: center; font-size: 1.1rem; line-height: 1.5; margin-bottom: 30px;">권장 레벨: 90 (★3)<br><br>최고의 아이돌을 증명하는<br>무대입니다.</p>
+            </div>
+            <button class="execute-btn" style="background: #8e44ad; font-size: 1.3rem; padding: 12px 30px; width: 80%;">입장하기</button>
+        </div>
+    </div>
+  </div>
+
+  <div id="live-ongoing-container" style="width: 95%; max-width: 1500px; margin: 0 auto; display: none; flex-direction: column; height: calc(100vh - 120px);">
+    
+    
+    <div id="live-stage-list" style="display: flex; gap: 15px; flex-grow: 1; padding-bottom: 20px; overflow: hidden; width: 100%;">
+        <!-- 라이브 스테이지들이 여기에 추가됩니다. -->
+    </div>
+  </div>
+</div>
+
+<!-- 전투 씬 (scene-battle) -->
+<div id="scene-battle" class="scene">
+
+  <!-- 1. 플레이어용 실전 전투 아레나 (8 vs 8 Arena View) -->
+  <div id="battle-arena-view" class="arena-main-container">
+    <!-- 상단 헤더 HUD 바 -->
+    <div class="arena-top-hud">
+      <div class="hud-left-group">
+        <div id="arena-turn-count" class="arena-header-turn">TURN 1</div>
+        <div id="arena-phase-pill" class="arena-phase-pill">전투 대기중</div>
+      </div>
+      
+      <!-- 상단 덱 확인 카드형 버튼 그룹 (뽑을 카드 / 버려진 카드) -->
+      <div class="arena-deck-hud-group">
+        <button id="btn-arena-deck-draw" class="arena-deck-mini-card" title="뽑을 카드 덱 보기 (클릭 시 모달 오픈)">
+          <div class="deck-mini-card-icon">🎴</div>
+          <div class="deck-mini-card-details">
+            <span class="deck-mini-card-title">뽑을 카드</span>
+            <span id="arena-deck-draw-count" class="deck-mini-card-count">0</span>
+          </div>
+        </button>
+        <button id="btn-arena-deck-discard" class="arena-deck-mini-card" title="버려진 카드 덱 보기 (클릭 시 모달 오픈)">
+          <div class="deck-mini-card-icon">🗑️</div>
+          <div class="deck-mini-card-details">
+            <span class="deck-mini-card-title">버린 카드</span>
+            <span id="arena-deck-discard-count" class="deck-mini-card-count">0</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- 상단 턴 알림 탭 (중앙 탭 형태) -->
+      <div id="arena-top-turn-tab" class="arena-top-turn-tab"></div>
+
+      <!-- 상단 BGM 표시 및 음소거 구역 -->
+      <div id="arena-bgm-bar" class="arena-bgm-bar" style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.15); padding: 3px 10px; border-radius: 9999px; font-size: 0.78rem; color: #e2e8f0;">
+        <span id="arena-bgm-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; font-weight: 500;" title="재생 중인 음악">🎵 BGM 대기 중</span>
+        <button id="btn-arena-mute-bgm" class="arena-circle-btn" style="width: 24px; height: 24px; min-width: 24px; font-size: 0.78rem; padding: 0; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); cursor: pointer; display: flex; align-items: center; justify-content: center;" title="BGM 음소거">🔊</button>
+      </div>
+
+      <div class="hud-right-group">
+        <button id="btn-arena-start" class="arena-start-btn" style="display: none;">⚔️ 전투 시작</button>
+        <button id="btn-arena-step" class="arena-circle-btn" disabled title="100턴 이후 자동 전투로 전환 가능" style="opacity: 0.4; cursor: not-allowed;">⏱️</button>
+        <button id="btn-arena-speed" class="arena-circle-btn">1x</button>
+        <button id="btn-arena-stats" class="arena-circle-btn" title="전투 분석">📊</button>
+        <button id="btn-arena-type-chart" class="arena-circle-btn" style="width: auto; padding: 0 10px; border-radius: 9999px; font-weight: 800; font-size: 0.78rem; background: linear-gradient(135deg, #4f46e5, #06b6d4); color: #fff; border: 1px solid #818cf8;">🔮 속성</button>
+        <button id="btn-arena-surrender" class="arena-circle-btn" style="width: auto; padding: 0 10px; border-radius: 9999px; font-weight: 800; font-size: 0.78rem; background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; border: 1px solid #f87171; cursor: pointer;">🏳️ 포기</button>
+      </div>
+    </div>
+
+    <!-- 8 vs 8 전투 필드 레이아웃 -->
+    <div class="arena-field-wrapper">
+      
+      <!-- 상단: 아군 진형 (좌측 3 서포터, 우측 5 스트라이커, 최우측 아군 게이지) -->
+      <div class="arena-team-row player-team-row">
+        <div id="arena-player-supporters" class="arena-cards-strip"></div>
+        <div class="formation-spacer"></div>
+        <div id="arena-player-strikers" class="arena-cards-strip"></div>
+        <div class="gauge-spacer"></div>
+        <div id="gauge-player-container" class="arena-vertical-gauge">
+          <div id="gauge-player-fill" class="gauge-fill"></div>
+          <div id="gauge-player-text" class="gauge-text">0 / 200</div>
+        </div>
+      </div>
+
+      <!-- 중앙 턴 전환 알림 배너 -->
+      <div id="arena-turn-banner" class="arena-turn-banner"></div>
+
+      <!-- 하단: 적군 진형 (최좌측 적군 게이지, 좌측 5 스트라이커, 우측 3 서포터) -->
+      <div class="arena-team-row enemy-team-row">
+        <div id="gauge-enemy-container" class="arena-vertical-gauge">
+          <div id="gauge-enemy-fill" class="gauge-fill"></div>
+          <div id="gauge-enemy-text" class="gauge-text">0 / 200</div>
+        </div>
+        <div class="gauge-spacer"></div>
+        <div id="arena-enemy-strikers" class="arena-cards-strip"></div>
+        <div class="formation-spacer"></div>
+        <div id="arena-enemy-supporters" class="arena-cards-strip"></div>
+      </div>
+
+    </div>
+
+    <!-- 수동 타깃팅 안내 바 -->
+    <div id="arena-targeting-bar" class="arena-targeting-bar" style="display: none;">
+      <span id="arena-targeting-text">🎯 대상을 선택하세요</span>
+      <button id="btn-cancel-targeting" class="arena-targeting-cancel-btn">선택 취소 (ESC)</button>
+    </div>
+
+    <!-- 3~4장 카드 드로우 팝업 선택 모달 (A안) -->
+    <div id="arena-card-modal" class="arena-modal-backdrop">
+      <!-- 12시 상단 공격형 스킬 속성 상성 안내 바 -->
+      <div id="arena-card-selection-type-hint" class="arena-card-selection-type-hint" style="display: none;"></div>
+      <div class="arena-card-modal-content">
+        <div class="card-modal-header">
+          <h3>🎴 스킬 카드 선택 (아군 턴)</h3>
+          <button id="btn-close-card-modal" class="modal-close-btn">&times;</button>
+        </div>
+        <div id="arena-card-notice-area"></div>
+        <div id="arena-card-list" class="arena-card-list"></div>
+        <div id="arena-card-modal-footer" class="arena-card-modal-footer">
+          <button id="btn-arena-survey" class="arena-survey-btn" type="button">👁️ 전장 조감</button>
+          <div id="arena-card-footer-pass-wrapper"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 전장 조감 복귀 플로팅 버튼 (눈 버튼 눌렀을 때 표시) -->
+    <div id="arena-survey-overlay" class="arena-survey-floating-container" style="display: none;">
+      <button id="btn-arena-survey-return" class="arena-survey-return-btn" type="button">
+        👁️ 카드 선택으로 복귀
+      </button>
+    </div>
+
+    <!-- 딜/치유 그래프 통계 모달 (📊) -->
+    <div id="arena-stats-modal" class="arena-modal-backdrop">
+      <div class="arena-stats-modal-content">
+        <div class="stats-modal-header">
+          <h3>📊 전투 통계 (피해량 & 치유량)</h3>
+          <button id="btn-close-battle-stats" class="modal-close-btn">&times;</button>
+        </div>
+        <div id="arena-stats-body" class="arena-stats-body"></div>
+      </div>
+    </div>
+
+    <!-- 승패 결과 모달 -->
+    <div id="arena-result-modal" class="arena-modal-backdrop">
+      <div class="arena-result-modal-content">
+        <h2 id="arena-result-title">🏆 VICTORY!</h2>
+        <div id="arena-result-desc" class="result-desc"></div>
+        <div class="result-btn-row">
+          <button id="btn-battle-result-analysis" class="execute-btn" style="background:#6366f1;">📊 결과 분석</button>
+          <button id="btn-battle-result-restart" class="execute-btn">🔄 다시하기</button>
+          <button id="btn-battle-result-exit" class="cancel-btn">🚪 로비로 나가기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 아카스파(Red Superchat) 각성 대형 안내 모달 -->
+    <div id="arena-rsc-modal" class="arena-modal-backdrop">
+      <div class="arena-rsc-modal-content">
+        <div class="rsc-modal-header">
+          <span class="rsc-modal-badge">🧧 RED SUPERCHAT</span>
+          <h2>💥 아카스파 각성 발동!</h2>
+        </div>
+        <div class="rsc-modal-body">
+          <div class="rsc-modal-portrait-wrap">
+            <img id="rsc-modal-portrait" src="" alt="각성 캐릭터">
+          </div>
+          <div class="rsc-modal-info">
+            <div id="rsc-modal-char-name" class="rsc-modal-name">캐릭터 이름</div>
+            <div id="rsc-modal-tags" class="rsc-modal-tags">
+              <span id="rsc-modal-tag-team" class="rsc-tag">아군</span>
+              <span id="rsc-modal-tag-role" class="rsc-tag">직군</span>
+              <span id="rsc-modal-tag-status" class="rsc-tag status-breaking">브레이킹 각성</span>
+            </div>
+            <div id="rsc-modal-effect-desc" class="rsc-modal-desc">각성 효과 내용</div>
+          </div>
+        </div>
+        <div class="rsc-modal-footer">
+          <button id="btn-close-rsc-modal" class="rsc-confirm-btn">🧧 각성 확인 (전투 재개)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 덱 카드 목록 모달 (뽑을 카드 / 버려진 카드) -->
+    <div id="arena-deck-modal" class="arena-modal-backdrop" style="display: none; z-index: 100010;">
+      <div class="arena-deck-modal-content glass-panel">
+        <div class="arena-deck-modal-header">
+          <div class="arena-deck-modal-title-group">
+            <span id="arena-deck-modal-icon" class="arena-deck-modal-icon">🎴</span>
+            <h3 id="arena-deck-modal-title" class="arena-deck-modal-title">뽑을 카드 덱</h3>
+            <span id="arena-deck-modal-count" class="arena-deck-modal-badge">0장</span>
+          </div>
+          <div class="arena-deck-modal-tabs">
+            <button id="btn-deck-tab-draw" class="arena-deck-tab active" type="button">🎴 뽑을 카드</button>
+            <button id="btn-deck-tab-discard" class="arena-deck-tab" type="button">🗑️ 버려진 카드</button>
+            <div class="deck-team-toggle-group">
+              <button id="btn-deck-team-player" class="deck-team-pill active" type="button">아군</button>
+              <button id="btn-deck-team-enemy" class="deck-team-pill" type="button">적군</button>
+            </div>
+          </div>
+          <button id="btn-close-deck-modal" class="modal-close-btn" type="button">&times;</button>
+        </div>
+        <div id="arena-deck-card-grid" class="arena-deck-card-grid">
+          <!-- 카드들이 동적으로 렌더링됨 -->
+        </div>
+        <div class="arena-deck-modal-footer">
+          <span class="deck-modal-hint">💡 카드를 클릭하면 상세 정보를 확대하여 볼 수 있습니다.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 카드 상세 확대 줌 모달 -->
+    <div id="arena-card-zoom-modal" class="arena-modal-backdrop" style="display: none; z-index: 100020;">
+      <div class="arena-card-zoom-wrapper">
+        <div id="arena-card-zoom-target" class="arena-card-zoom-card"></div>
+        <button id="btn-close-card-zoom" class="card-zoom-close-btn" type="button">&times;</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 2. 개발자용 디버그 / 테스트 하네스 패널 (🧪 버튼으로 토글) -->
+  <div id="battle-debug-view" style="display: none; width: 95%; max-width: 1400px; margin: 50px auto 0 auto; background: rgba(255,255,255,0.96); padding: 25px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); height: 85vh; flex-direction: column; gap: 15px;">
+    <!-- 상단 헤더 및 컨트롤 버튼 바 -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 12px;">
+      <h2 style="margin: 0; color: #2c3e50; display: flex; align-items: center; gap: 10px;">
+        <span>🧪 전투 시스템 개발자 검증 하네스</span>
+      </h2>
+      <div style="display: flex; gap: 10px;">
+        <button id="btn-battle-run-tests" class="execute-btn" style="background: #27ae60; padding: 8px 18px; font-size: 1rem;">🧪 전체 검증 (37개 테스트)</button>
+        <button id="btn-battle-reset" class="cancel-btn" style="padding: 8px 16px; font-size: 1rem;">🎲 8vs8 무작위 재편성 & 리셋</button>
+        <button id="btn-battle-step-tick" class="execute-btn" style="background: #e67e22; padding: 8px 16px; font-size: 1rem;">⏱️ 1틱 진행 (+1s)</button>
+        <button id="btn-battle-auto-play" class="execute-btn" style="background: #3498db; padding: 8px 18px; font-size: 1rem;">▶ 자동 진행 (Auto)</button>
+      </div>
+    </div>
+
+    <!-- 메인 대시보드 (좌측: 전투 상태 패널, 우측: 실시간 로그 패널) -->
+    <div style="display: flex; gap: 20px; flex: 1; overflow: hidden;">
+      <!-- 좌측: 전투 상태 및 캐릭터/게이지 현황 -->
+      <div id="battle-debug-status" style="flex: 1.2; background: #f8f9fa; border-radius: 8px; padding: 15px; overflow-y: auto; border: 1px solid #e2e8f0;">
+        <div style="text-align: center; color: #7f8c8d; padding-top: 50px;">
+          상단 '모의전투 리셋' 또는 '1틱 진행' 버튼을 눌러 전투 엔진을 가동하세요.
+        </div>
+      </div>
+
+      <!-- 우측: 검증 결과 및 전투 로그 -->
+      <div style="flex: 1; display: flex; flex-direction: column; background: #2d3748; border-radius: 8px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);">
+        <div style="background: #1a202c; color: #a0aec0; padding: 8px 12px; font-size: 0.85rem; font-weight: bold; display: flex; justify-content: space-between;">
+          <span>📜 전투 엔진 로그 & 검증 출력</span>
+          <span style="color: #48bb78;">Live Stream</span>
+        </div>
+        <div id="battle-debug-log" style="flex: 1; padding: 12px; overflow-y: auto; color: #e2e8f0; font-family: monospace; font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px;">
+          <div style="color: #a0aec0;">[대기중] '전체 검증' 버튼을 클릭하면 1~3단계 전체 테스트를 브라우저에서 검증합니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scene-deck" class="scene deck-scene">
+  <div class="deck-sort-nav" style="position: absolute; top: 20px; left: 50px; display: flex; gap: 10px; z-index: 100;">
+      <button id="btn-reset-deck" class="cancel-btn" style="padding: 10px 20px; font-size: 1.1rem;">초기화</button>
+      <div class="sort-dropdown-container">
+        <div class="sort-dropdown-btn" id="deck-sort-btn">
+          <span id="deck-sort-label">기본 정렬</span>
+          <span class="dropdown-arrow">▼</span>
+        </div>
+        <div class="sort-options" id="deck-sort-options">
+          <div class="sort-option" data-sort="default">기본 정렬</div>
+          <div class="sort-option" data-sort="level">레벨 순</div>
+          <div class="sort-option" data-sort="type">속성 순</div>
+          <div class="sort-option" data-sort="class">역할군 순</div>
+          
+        </div>
+      </div>
+    </div>
+    <div class="top-nav">
+    <div style="flex-grow: 1;"></div>
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  <div class="deck-layout">
+    <!-- 좌측 영역 -->
+    <div class="deck-left-col">
+      <!-- A영역: 덱 리스트 -->
+      <div class="deck-list-area">
+        <div id="deck-list-container">
+           <!-- JS dynamically creates 24 slots here -->
+        </div>
+      </div>
+      <!-- E영역: 덱 정보 -->
+      <div class="deck-info-area glass-panel" id="deck-info-container" style="display: flex; flex-direction: column; padding: 15px; gap: 10px;">
+         <!-- Populated by JS -->
+      </div>
+    </div>
+    
+    <!-- 우측 메인 영역 -->
+    <div class="deck-main-area">
+      <!-- B영역: 보유 홀로멤 리스트 -->
+      <div class="deck-pool-area glass-panel">
+                  <div id="deck-char-pool" class="deck-char-pool-grid">
+            <!-- JS dynamically creates char cards here -->
+         </div>
+         <div id="deck-unassign-zone" ondragenter="event.preventDefault(); event.dataTransfer.dropEffect='move';" ondragover="event.preventDefault(); event.dataTransfer.dropEffect='move'; this.style.background='rgba(255, 100, 100, 0.4)';" ondragleave="this.style.background='rgba(255, 150, 150, 0.2)';" style="display: none; height: 100%; width: 100%; min-height: 200px; flex-direction: column; justify-content: center; align-items: center; border: 3px dashed rgba(231,76,60, 0.7); border-radius: 15px; background: rgba(255, 150, 150, 0.2); backdrop-filter: blur(5px); color: rgba(231,76,60,0.8); font-size: 2.2rem; font-weight: bold; transition: all 0.2s; pointer-events: auto;">
+            <div style="pointer-events: none;">[ 배치 해제 ]</div>
+            <div style="font-size: 1.1rem; color: #e74c3c; font-weight: normal; margin-top: 10px; pointer-events: none;">여기로 드래그하여 해제</div>
+         </div>
+      </div>
+      
+      <!-- C, D, E 영역 (하단) -->
+      <div class="deck-bottom-area">
+         <!-- C: 서포터 3인 -->
+         <div class="deck-supporter-area glass-panel">
+            <div class="deck-slot supporter-slot" data-slot="0"></div>
+            <div class="deck-slot supporter-slot" data-slot="1"></div>
+            <div class="deck-slot supporter-slot" data-slot="2"></div>
+         </div>
+         
+         <div class="deck-divider"></div>
+         
+         <!-- D: 스트라이커 5인 -->
+         <div class="deck-striker-area glass-panel">
+            <div class="deck-slot striker-slot" data-slot="0"></div>
+            <div class="deck-slot striker-slot" data-slot="1"></div>
+            <div class="deck-slot striker-slot" data-slot="2"></div>
+            <div class="deck-slot striker-slot" data-slot="3"></div>
+            <div class="deck-slot striker-slot" data-slot="4"></div>
+         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scene-5" class="scene char-list-scene">
+  <!-- 11시 방향 커스텀 정렬 드롭다운 -->
+  
+      <div class="sort-dropdown-container">
+    <div class="sort-dropdown-btn" id="holomem-sort-btn">
+      <span id="holomem-sort-label">기본 정렬</span>
+      <span class="dropdown-arrow">▼</span>
+    </div>
+    <div class="sort-options" id="holomem-sort-options">
+      <div class="sort-option" data-sort="default">기본 정렬</div>
+      <div class="sort-option" data-sort="level">레벨 순</div>
+      <div class="sort-option" data-sort="type">속성 순</div>
+      <div class="sort-option" data-sort="class">역할군 순</div>
+    </div>
+  </div>
+
+  <!-- 5시 방향 맨 위로 가기 버튼 -->
+  <button id="btn-holomem-scroll-top" class="circle-btn" title="맨 위로">⬆️</button>
+
+  
+    <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  <!-- 상단 여백용 투명 타이틀 -->
+  <div class="scene-title" style="display:none;">홀로멤</div>
+  <!-- 실제 캐릭터 리스트가 생성될 컨테이너 -->
+  <div id="holomem-list-container"></div>
+</div>
+
+<!-- === [미보유 홀로멤 씬] === -->
+<div id="scene-unowned" class="scene char-list-scene">
+  <!-- 11시 방향 커스텀 정렬 드롭다운 -->
+  
+      <div class="sort-dropdown-container">
+    <div class="sort-dropdown-btn" id="unowned-sort-btn">
+      <span id="unowned-sort-label">기본 정렬</span>
+      <span class="dropdown-arrow">▼</span>
+    </div>
+    <div class="sort-options" id="unowned-sort-options">
+      <div class="sort-option" data-sort="default">기본 정렬</div>
+      <div class="sort-option" data-sort="type">속성 순</div>
+      <div class="sort-option" data-sort="class">역할군 순</div>
+    </div>
+  </div>
+
+  <!-- 5시 방향 맨 위로 가기 버튼 -->
+  <button id="btn-unowned-scroll-top" class="circle-btn" title="맨 위로">⬆️</button>
+
+  
+    <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  <!-- 상단 여백용 투명 타이틀 -->
+  <div class="scene-title" style="display:none;">미보유 홀로멤</div>
+  <!-- 실제 캐릭터 리스트가 생성될 컨테이너 -->
+  <div id="unowned-holomem-list-container"></div>
+</div>
+
+<div id="scene-7" class="scene kizuna-scene">
+  
+    <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  
+  <div class="kizuna-container">
+    <div class="kizuna-header">
+      <div class="kizuna-tabs">
+        <button class="kizuna-tab-btn active" data-tab="list">키즈나 목록</button>
+        <button class="kizuna-tab-btn" data-tab="기수 키즈나">기수 키즈나</button>
+        <button class="kizuna-tab-btn" data-tab="속성 키즈나">속성 키즈나</button>
+        <button class="kizuna-tab-btn" data-tab="통상 키즈나">통상 키즈나</button>
+      </div>
+      <div class="kizuna-points-info">
+        <div class="kizuna-points-text">
+          <span class="kp-label">보유 포인트 :</span>
+          <span id="kizuna-current-points" class="kp-val">0.0</span> 
+          <span class="kp-divider">/</span>
+          <span id="kizuna-total-points" class="kp-total">0.0</span>
+        </div>
+        <button id="btn-kizuna-reset" class="kizuna-reset-btn" style="display:none;">
+          초기화 <span id="kizuna-reset-cost">(0 C)</span>
+        </button>
+      </div>
+    </div>
+    
+    <div class="kizuna-content-area">
+      <!-- 키즈나 목록 탭 -->
+      <div id="kizuna-tab-list" class="kizuna-tab-pane active">
+        <div class="kizuna-list-wrapper" id="kizuna-list-wrapper">
+          <!-- JS에서 동적 생성됨 -->
+        </div>
+      </div>
+      
+      <!-- 패시브 스킬트리 탭 -->
+      <div id="kizuna-tab-tree" class="kizuna-tab-pane">
+        <div class="kizuna-tree-wrapper" id="kizuna-tree-wrapper">
+          <!-- JS에서 동적 생성됨 -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- === [창고 씬] === -->
+<div id="scene-8" class="scene warehouse-scene">
+  
+    <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  
+  <div class="warehouse-container">
+    <!-- 좌측: 아이템 목록 및 탭 -->
+    <div class="warehouse-left glass-panel">
+      <div class="warehouse-tabs" id="warehouse-tabs">
+        <button class="tab-btn active" data-type="all">전체</button>
+        <button class="tab-btn" data-type="재화">재화</button>
+        <button class="tab-btn" data-type="재료">재료</button>
+      </div>
+      <!-- 아이템 슬롯들이 생성될 그리드 -->
+      <div class="warehouse-grid" id="warehouse-grid">
+      </div>
+    </div>
+    
+    <!-- 우측: 아이템 상세 정보 패널 -->
+    <div class="warehouse-right glass-panel">
+      <!-- 아무것도 선택하지 않았을 때 -->
+      <div id="warehouse-detail-empty" class="detail-empty">
+        아이템을 선택해주세요
+      </div>
+      <!-- 아이템을 선택했을 때 나타나는 정보 -->
+      <div id="warehouse-detail-content" class="detail-content hidden">
+        <div class="detail-top">
+          <div class="detail-icon-wrapper" id="detail-item-bg">
+            <img src="" id="detail-item-icon" alt="아이템 아이콘">
+          </div>
+          <div class="detail-title-group">
+            <div id="detail-item-type" class="detail-type-badge">타입</div>
+            <div id="detail-item-name" class="detail-name">아이템 이름</div>
+            <div id="detail-item-owned" class="detail-owned">보유량: 0</div>
+          </div>
+        </div>
+        <div class="warehouse-divider"></div>
+        <div class="detail-desc-box">
+          <p id="detail-item-desc">아이템 설명</p>
+        </div>
+        <div class="detail-source-box">
+          <h4>획득처</h4>
+          <div id="detail-item-sources" class="source-list">
+             <!-- JS로 획득처 버튼 생성 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scene-9" class="scene placeholder-scene">
+  
+    <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  <div class="scene-title">상점 (씬9)</div>
+</div>
+
+
+<div id="scene-10" class="scene">
+  
+    <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  <div class="studio-layout">
+    <!-- Donation Box (Left Column) -->
+    <div class="studio-donation-column">
+      <div class="studio-donation-header">도네이션 박스</div>
+      <div class="studio-donation-list" id="studio-donation-list"></div>
+      <button class="studio-donation-btn" id="btn-collect-donations">전체 회수</button>
+    </div>
+    <!-- Main Studios (Middle Column: 2x3 Grid) -->
+    <div class="studio-grid-main" id="studio-grid-main"></div>
+    <!-- Management (Right Column: 1x2 Grid) -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 140px;">
+        <div id="snack-slot" style="background: #1e272e; border: 2px dashed #7f8c8d; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.2s;" onclick="if(window.openSnackModal) window.openSnackModal()" onmouseover="this.style.borderColor='#f1c40f'; this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='#7f8c8d'; this.style.transform='scale(1)'">
+            <div style="font-size: 1.5em; margin-bottom: 5px;">🍱</div>
+            <div style="font-size: 0.9em; font-weight: bold; color: #bdc3c7;">간식 바구니</div>
+        </div>
+        <div class="studio-grid-mgmt" id="studio-grid-mgmt" style="flex: 1; min-width: unset;"></div>
+    </div>
+  </div>
+</div>
+<!-- === [오디션 씬 (씬13)] === -->
+
+<!-- === [사무소 씬 (씬11)] === -->
+<div id="scene-11" class="scene">
+  
+    <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  <div class="studio-layout">
+    <!-- 비품 창고 & 휴게공간 (Left Column) -->
+    <div class="studio-donation-column office-left-column">
+      <!-- 비품 창고 (상단: 스크롤 영역 제공) -->
+      <div class="office-supplies-box">
+        <div class="studio-donation-header office-supplies-header">비품 창고</div>
+        <div class="studio-donation-list office-supplies-scroll" id="office-supplies-list"></div>
+        <button class="studio-donation-btn" id="btn-collect-supplies">전체 회수</button>
+      </div>
+      <!-- 휴게공간 (하단: 8개 휴식칸) -->
+      <div class="office-lounge-box">
+        <div class="studio-header office-lounge-header">
+          <div class="studio-title"><span class="studio-emoji">🛋️</span> 휴게공간</div>
+          <span class="office-lounge-badge">+50% 회복</span>
+        </div>
+        <div class="office-lounge-slots-grid" id="office-lounge-slots"></div>
+      </div>
+    </div>
+    <!-- Main Departments (Middle Column: 2x3 Grid) -->
+    <div class="studio-grid-main" id="office-grid-main"></div>
+    <!-- Kitchen & Dismantle (Right Column: 1x2 Grid) -->
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 140px;">
+        <div id="snack-slot-office" style="background: #1e272e; border: 2px dashed #7f8c8d; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer; transition: all 0.2s;" onclick="if(window.openSnackModal) window.openSnackModal()" onmouseover="this.style.borderColor='#f1c40f'; this.style.transform='scale(1.02)'" onmouseout="this.style.borderColor='#7f8c8d'; this.style.transform='scale(1)'">
+            <div style="font-size: 1.5em; margin-bottom: 5px;">🍱</div>
+            <div style="font-size: 0.9em; font-weight: bold; color: #bdc3c7;">간식 바구니</div>
+        </div>
+        <div class="studio-grid-mgmt" id="office-grid-mgmt" style="flex: 1; min-width: unset;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="scene-12" class="scene gacha-scene">
+  
+    <div class="top-nav">
+    <div class="global-currency">
+      <div class="currency" data-item-id="Item_001">
+        <img class="currency-icon diamond-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item_001.png" alt="홀로다이아">
+        <span class="currency-amount">0</span>
+      </div>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  
+  <div class="gacha-new-layout">
+    <!-- A영역: 좌측 5버튼 -->
+    <div class="gacha-sidebar">
+      <div class="gacha-side-btn btn-type-special active" data-type="special">
+         <div class="gacha-side-cost"><img class="diamond-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%ED%99%80%EB%A1%9C%EB%8B%A4%EC%9D%B4%EC%95%84.png"> 1200</div>
+         <div class="gacha-side-title">스페셜 캐스팅</div>
+      </div>
+      <div class="gacha-side-btn btn-type-pickup" data-type="pickup">
+         <div class="gacha-side-cost"><img class="diamond-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%ED%99%80%EB%A1%9C%EB%8B%A4%EC%9D%B4%EC%95%84.png"> 1000</div>
+         <div class="gacha-side-title">픽업 캐스팅</div>
+      </div>
+      <div class="gacha-side-btn btn-type-jp" data-type="jp">
+         <div class="gacha-side-cost"><img class="diamond-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%ED%99%80%EB%A1%9C%EB%8B%A4%EC%9D%B4%EC%95%84.png"> 900</div>
+         <div class="gacha-side-title">JP 캐스팅</div>
+      </div>
+      <div class="gacha-side-btn btn-type-nonjp" data-type="nonjp">
+         <div class="gacha-side-cost"><img class="diamond-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%ED%99%80%EB%A1%9C%EB%8B%A4%EC%9D%B4%EC%95%84.png"> 900</div>
+         <div class="gacha-side-title">Non JP 캐스팅</div>
+      </div>
+      <div class="gacha-side-btn btn-type-full" data-type="full">
+         <div class="gacha-side-cost"><img class="diamond-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%ED%99%80%EB%A1%9C%EB%8B%A4%EC%9D%B4%EC%95%84.png"> 800</div>
+         <div class="gacha-side-title">풀 캐스팅</div>
+      </div>
+    </div>
+    
+    <!-- B영역: 메인 배너 및 뽑기 버튼 -->
+    <div class="gacha-main-area">
+       <div id="gacha-banner-display" class="gacha-banner-display">
+          <div id="gacha-banner-bg" class="gacha-banner-bg"></div>
+          <div class="gacha-banner-flash" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; transition: opacity 0.5s ease-out; z-index: 5;"></div>
+          <div class="gacha-banner-glaze"></div>
+          <!-- 스페셜 가챠 테마곡 안내 및 상점 이동 버튼 -->
+          <button id="btn-gacha-theme-song" class="gacha-theme-song-btn" style="display: none;" title="테마곡 상점 바로가기">
+            <span class="theme-song-music-icon">🎵</span>
+            <span class="theme-song-label">테마곡:</span>
+            <span id="gacha-theme-song-name" class="theme-song-name">Hikari</span>
+            <span class="theme-song-arrow">➔ 상점</span>
+          </button>
+          <div class="gacha-action-area" style="position: absolute; bottom: 20px; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 40px; box-sizing: border-box; z-index: 10;">
+             <button id="btn-gacha-main-help" class="gacha-help-btn gacha-main-help-btn">?</button>
+             
+             <!-- 천장(정가) 진행도 및 교환 패널 -->
+             <div class="gacha-pity-panel" style="display: flex; flex-direction: column; align-items: center; background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 8px 18px; backdrop-filter: blur(8px); box-shadow: 0 4px 15px rgba(0,0,0,0.5); gap: 6px;">
+               <div style="display: flex; align-items: center; gap: 8px; font-size: 0.95rem; font-weight: bold; color: #f8fafc;">
+                 <span style="color: #38bdf8;">🎯 확정 진행도:</span>
+                 <span id="gacha-pity-count" style="color: #facc15; font-size: 1.15rem; font-weight: 800;">0 / 10</span>
+               </div>
+               <button id="btn-gacha-exchange" class="execute-btn" style="padding: 5px 16px; font-size: 0.88rem; border-radius: 8px; background: linear-gradient(135deg, #f59e0b, #d97706); opacity: 0.45; pointer-events: none; transition: all 0.3s ease;">확정 교환</button>
+             </div>
+
+             <button id="btn-gacha-10" class="gacha-pull-btn new-pull-btn">
+                <div class="pull-btn-title">10회 캐스팅</div>
+                <div class="pull-btn-cost">
+                  <img class="diamond-icon" src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%ED%99%80%EB%A1%9C%EB%8B%A4%EC%9D%B4%EC%95%84.png" style="width: 24px;"> <span id="gacha-cost-10">1200</span>
+                </div>
+             </button>
+          </div>
+       </div>
+    </div>
+  </div>
+</div>
+
+<!-- === [오디션 씬 (씬13)] === -->
+<div id="scene-13" class="scene audition-scene">
+  
+    <div class="top-nav">
+    <button class="circle-btn nav-btn btn-help">?</button>
+    <button class="circle-btn nav-btn btn-back">↩</button>
+    <button class="circle-btn nav-btn btn-home">🏠</button>
+  </div>
+  
+  <div class="audition-container">
+    <div class="audition-header">
+      <h2 class="audition-title">🎤 오디션 </h2>
+      <div class="audition-ticket-info glass-panel" style="display: flex; align-items: center; gap: 8px;">
+        <img src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%EC%98%A4%EB%94%94%EC%85%98%ED%8B%B0%EC%BC%93.png" alt="오디션 티켓" style="width: 28px; height: 28px; object-fit: contain;">
+        보유 오디션 티켓 : <span id="audition-ticket-count" style="color:#00a8ff; font-weight:bold;">0</span>
+      </div>
+    </div>
+    
+    <!-- 6개의 오디션 배럭 슬롯 -->
+    <div class="audition-slots-grid">
+      <!-- JS에서 동적으로 슬롯 상태(대기/모집중/완료)를 렌더링할 뼈대 -->
+      <div class="audition-slot empty" id="audition-slot-0" data-slot-idx="0"></div>
+      <div class="audition-slot empty" id="audition-slot-1" data-slot-idx="1"></div>
+      <div class="audition-slot empty" id="audition-slot-2" data-slot-idx="2"></div>
+      <div class="audition-slot empty" id="audition-slot-3" data-slot-idx="3"></div>
+      <div class="audition-slot empty" id="audition-slot-4" data-slot-idx="4"></div>
+      <div class="audition-slot empty" id="audition-slot-5" data-slot-idx="5"></div>
+    </div>
+  </div>
+</div>
+
+<!-- === [오디션 설정 팝업(모달) 추가] === -->
+<!-- id="scene-13" 이 끝난 직후, 가챠 확인 팝업 주석 직전에 아래 모달을 추가합니다 -->
+<div id="audition-setup-modal" class="modal-overlay">
+  <div class="modal-content glass-panel" style="width: 550px;">
+    <h3 style="margin-bottom: 20px; color: #005599; font-size: 1.8rem;">모집 조건 설정</h3>
+        <div class="audition-tags-section">
+        <p style="font-size: 1rem; color: #666; margin-bottom: 10px;">원하는 태그를 선택하세요 (최대 2개)</p>
+        <div id="audition-tags-container" class="audition-tags-grid">
+          <!-- JS에서 랜덤 태그 4개를 2x2 그리드로 생성합니다 -->
+        </div>
+      </div>
+    
+    <div class="warehouse-divider"></div>
+    
+    <div class="audition-time-section">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+        <span style="font-size: 1.1rem; font-weight: bold; color: #333;">모집 시간</span>
+        <span id="audition-time-display" style="font-size: 1.2rem; font-weight: 900; color: #00a8ff;">01 타임 (05:00)</span>
+      </div>
+      
+      <!-- 커스텀 슬라이더 -->
+      <input type="range" id="audition-time-slider" class="time-slider" min="1" max="10" value="1" step="1">
+      
+      <div style="display: flex; justify-content: space-between; margin-top: 15px;">
+        <span style="font-size: 0.95rem; font-weight: bold; color: #555;">소모 크레딧</span>
+        <span style="font-size: 1.1rem; font-weight: bold; color: #ff9f43;">✨ <span id="audition-cost-display">1000</span></span>
+      </div>
+    </div>
+
+    <div class="modal-btn-group" style="margin-top: 25px;">
+      <button id="btn-audition-cancel" class="cancel-btn">취소</button>
+      <button id="btn-audition-start" class="execute-btn">모집 시작</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [가챠 확인 팝업(모달) 요소 추가] === -->
+<!-- 캐스팅 정보 (확률 및 대상) 모달 -->
+<div id="gacha-info-modal" class="modal-overlay">
+  <div class="modal-content glass-panel" style="width: 90%; max-width: 1200px; max-height: 80vh; overflow-y: auto;">
+    <button class="modal-close-btn" id="btn-gacha-info-close">X</button>
+    <h2 id="gacha-info-title">캐스팅 정보</h2>
+    <div id="gacha-info-rates" style="margin-bottom: 20px; font-weight: bold;"></div>
+    <div id="gacha-info-rateup-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px 0;">
+      <!-- 캐릭터 카드들이 JS를 통해 렌더링될 공간 -->
+    </div>
+  </div>
+</div>
+
+<!-- 기존 확인 모달 -->
+
+  <!-- === [옵션 모달] === -->
+  <div id="options-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="width: 450px;">
+      <h3 style="margin-bottom: 20px;">옵션</h3>
+      
+      <!-- Audio Options -->
+      <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <h4 style="margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #7f8c8d; padding-bottom: 5px;">오디오 설정</h4>
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <span style="width: 100px;">전체 음량</span>
+          <input type="range" id="vol-master" min="0" max="100" value="100" style="flex:1; margin: 0 10px;">
+          <label style="display: flex; align-items: center; gap: 5px; font-size: 0.9em; cursor: pointer;">
+            <input type="checkbox" id="mute-master"> 음소거
+          </label>
+        </div>
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <span style="width: 100px;">BGM 음량</span>
+          <input type="range" id="vol-bgm" min="0" max="100" value="100" style="flex:1; margin: 0 10px;">
+          <label style="display: flex; align-items: center; gap: 5px; font-size: 0.9em; cursor: pointer;">
+            <input type="checkbox" id="mute-bgm"> 음소거
+          </label>
+        </div>
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <span style="width: 100px;">전투 사운드</span>
+          <input type="range" id="vol-sfx" min="0" max="100" value="100" style="flex:1; margin: 0 10px;">
+          <label style="display: flex; align-items: center; gap: 5px; font-size: 0.9em; cursor: pointer;">
+            <input type="checkbox" id="mute-sfx"> 음소거
+          </label>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 1.0rem;">
+        <span>백그라운드에서 BGM 제거하기</span>
+        <button id="btn-toggle-bgm" class="execute-btn" style="width: auto; padding: 6px 16px;">ON</button>
+      </div>
+
+      <!-- 가챠 연출 스킵 설정 -->
+      <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
+          <span>중복 가챠연출 보지않기</span>
+          <input type="checkbox" id="chk-skip-dup-gacha" style="transform: scale(1.2); cursor: pointer;">
+        </div>
+        <div id="wrapper-allow-dup-ssr" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; padding-left: 14px; color: #cbd5e1; transition: opacity 0.2s;">
+          <span>└ SSR 연출 허용</span>
+          <input type="checkbox" id="chk-allow-dup-ssr" style="transform: scale(1.2); cursor: pointer;">
+        </div>
+      </div>
+
+      <!-- 개발자 코드 입력 -->
+      <div style="background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 6px;">개발자 코드 인증</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="password" id="input-dev-code" placeholder="개발자 코드 입력" maxlength="10" style="flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid #475569; background: rgba(0,0,0,0.6); color: #fff; font-size: 0.95rem;">
+          <button id="btn-submit-dev-code" class="execute-btn" style="width: auto; padding: 6px 14px; white-space: nowrap; font-size: 0.9rem;">인증</button>
+        </div>
+      </div>
+
+      <div class="modal-btn-group" style="flex-direction: column; gap: 10px;">
+        <button id="btn-options-battle-test" class="execute-btn" style="display: none; width: 100%; background: linear-gradient(135deg, #e74c3c, #c0392b); font-weight: bold; border: none; box-shadow: 0 4px 10px rgba(231,76,60,0.3); font-size: 1.05rem;">⚔️ 전투 테스트</button>
+        <button id="btn-return-login" class="cancel-btn" style="width: 100%;">타이틀로 돌아가기</button>
+        <button id="btn-close-options" class="execute-btn" style="width: 100%; margin-top: 5px;">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- === [AP 수령 모달] === -->
+  <div id="ap-collect-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="width: 400px; text-align: center;">
+      <h3 style="margin-bottom: 15px;">라이브 티켓 회수</h3>
+      <p style="font-size: 1rem; color: #ddd; margin-bottom: 20px;">
+        매 타임마다 라이브 티켓을 1개 획득할 수 있습니다.<br>최대 30개까지 저장됩니다.
+      </p>
+      <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 1.5rem; font-weight: bold;">
+        <img src="https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/Item/%EC%86%8C%ED%83%95%EA%B6%8C.png" alt="라이브 티켓" style="width: 40px; height: 40px; object-fit: contain;">
+        <span id="ap-accumulated-count">0</span> / 30
+      </div>
+      <div class="modal-btn-group">
+        <button id="btn-ap-close" class="cancel-btn">닫기</button>
+        <button id="btn-ap-claim" class="execute-btn">회수하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="gacha-confirm-modal" class="modal-overlay">
+  <div class="modal-content glass-panel">
+    <h3 style="margin-bottom: 20px;">풀 캐스팅 진행</h3>
+    <p id="gacha-confirm-text">holo_diamond 800을 사용해서 캐스팅을 진행하시겠습니까?<br><br><span style="font-weight: bold; color:#005599;">현재 보유 홀로다이아 : 0</span></p>
+    <div class="modal-btn-group">
+      <button id="btn-gacha-cancel" class="cancel-btn">취소</button>
+      <button id="btn-gacha-execute" class="execute-btn">캐스팅</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [가챠 확정 교환 모달] === -->
+<div id="gacha-exchange-modal" class="modal-overlay" style="display: none; z-index: 100050;">
+  <div class="modal-content glass-panel" style="width: 760px; max-width: 92vw; max-height: 86vh; display: flex; flex-direction: column; padding: 24px; position: relative;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 10px;">
+      <h3 style="margin: 0; font-size: 1.35rem; color: #facc15; display: flex; align-items: center; gap: 8px;">
+        <span>👑</span> <span id="gacha-exchange-title">확정 교환 캐릭터 선택</span>
+      </h3>
+      <button id="btn-close-gacha-exchange" class="modal-close-btn" style="position: static; font-size: 1.6rem; background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px 8px;">&times;</button>
+    </div>
+    <p style="margin: 0 0 14px 0; font-size: 0.92rem; color: #cbd5e1;">
+      원하는 SSR 캐릭터를 선택하여 확정 영입할 수 있습니다. 이미 보유한 캐릭터는 개화 레벨 상승 또는 루비 보상이 지급됩니다.
+    </p>
+    <div id="gacha-exchange-list" class="gacha-exchange-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 14px; overflow-y: auto; flex: 1; padding: 6px;">
+      <!-- 동적 렌더링 -->
+    </div>
+  </div>
+</div>
+
+<!-- === [계정 초기화 팝업(모달) 요소 추가] === -->
+<div id="reset-confirm-modal" class="modal-overlay">
+  <div class="modal-content glass-panel">
+    <h3 style="margin-bottom: 20px; color: #ff4757;">시스템 경고</h3>
+    <p id="reset-confirm-text"></p>
+    <div class="modal-btn-group">
+      <button id="btn-reset-cancel" class="cancel-btn">취소</button>
+      <button id="btn-reset-execute" class="execute-btn" style="background-color: #ff4757; box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);">진행</button>
+    </div>
+  </div>
+</div>
+
+<div id="reset-alert-modal" class="modal-overlay">
+  <div class="modal-content glass-panel">
+    <h3 style="margin-bottom: 20px; color: #00a8ff;">알림</h3>
+    <p id="reset-alert-text"></p>
+    <div class="modal-btn-group">
+      <button id="btn-reset-ok" class="execute-btn">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [메인 캐릭터 변경 팝업(모달)] === -->
+<div id="main-char-modal" class="modal-overlay">
+  <div class="modal-content glass-panel" style="width: 90%; max-width: 1400px; height: 90vh; max-height: 900px; overflow: hidden; display: flex; flex-direction: column;">
+    <h3 style="margin-bottom: 20px; color: #005599;">메인 캐릭터 설정</h3>
+    <div id="main-char-list-container" style="flex: 1; overflow-y: auto; padding-right: 10px; display: block; width: 100%; -ms-overflow-style: none; scrollbar-width: none;"></div>
+    <div class="modal-btn-group" style="margin-top: 20px; display: flex; justify-content: center; gap: 15px;">
+      <button id="btn-confirm-main-char" class="execute-btn">등록 확인 : 0명</button>
+      <button id="btn-close-main-char" class="cancel-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [BGM 설정 팝업(모달)] === -->
+<div id="bgm-modal" class="modal-overlay">
+  <div class="modal-content glass-panel" style="width: 80%; max-width: 600px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <h3 style="margin: 0; color: #005599;">BGM 설정</h3>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: bold; color: #334155; cursor: pointer; user-select: none;">
+        <input type="checkbox" id="chk-bgm-modal-mute" style="width: 18px; height: 18px; cursor: pointer;">
+        <span>🔇 BGM 음소거</span>
+      </label>
+    </div>
+    <div id="bgm-list-container" style="max-height: 60vh; overflow-y: auto; padding-right: 10px; display: flex; flex-direction: column; gap: 10px;"></div>
+    <div class="modal-btn-group" style="margin-top: 20px; display: flex; justify-content: center; gap: 15px;">
+      <button id="btn-confirm-bgm" class="execute-btn" style="padding: 10px 20px; font-size: 1.1rem; background: #00a8ff; color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">등록 확인 : 1곡</button>
+      <button id="btn-close-bgm" class="cancel-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [도움말 팝업(모달) 요소 전면 개편] === -->
+<div id="help-modal" class="modal-overlay">
+  <div class="modal-content glass-panel help-modal-box">
+    <div class="help-modal-header">
+      <div class="help-header-title-group">
+        <span class="help-badge" id="help-badge">GUIDE</span>
+        <h3 id="help-title">도움말</h3>
+      </div>
+      <button class="help-close-x" id="btn-close-help-x" title="닫기">✕</button>
+    </div>
+    <div class="help-modal-body" id="help-body">
+      <p id="help-text" style="display: none;"></p>
+    </div>
+    <div class="help-modal-footer">
+      <div class="help-pagination" id="help-pagination">
+        <button id="btn-help-prev" class="help-nav-btn">◀ 이전</button>
+        <span id="help-page-indicator" class="help-page-indicator">1 / 1</span>
+        <button id="btn-help-next" class="help-nav-btn">다음 ▶</button>
+      </div>
+      <button id="btn-close-help" class="cancel-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [기능 해금 알림 팝업(모달)] === -->
+<div id="unlock-modal" class="modal-overlay">
+  <div class="modal-content glass-panel unlock-modal-content">
+    <div class="unlock-modal-icon">🎉</div>
+    <h3 class="unlock-modal-title">신규 기능 해금!</h3>
+    <p class="unlock-modal-desc" id="unlock-modal-desc">기능이 해금되었습니다.</p>
+    <button id="btn-close-unlock" class="unlock-modal-btn">확인</button>
+  </div>
+</div>
+
+<!-- === [개별 가챠 팝업 연출 오버레이] === -->
+<div id="gacha-anim-overlay">
+  <button id="btn-gacha-skip">Skip ⏩</button>
+  <!-- [신규] SSR 전용 등장 대사 레이어 -->
+  <div id="gacha-speech-overlay">
+    <img id="speech-bg-attr" src="" alt="Attribute BG"> <!-- [신규] 대사 뒤 반투명 속성 아이콘 -->
+    <div id="gacha-speech-text"></div>
+  </div>
+  
+  <div class="gacha-anim-bg"></div>
+  <div id="gacha-spotlight"></div> <!-- [신규] 상단에서 내리쬐는 스포트라이트 -->
+  <!-- [신규] 오프닝 연출용 빛무리 레이어 -->
+  <div id="opening-sweep-left" class="opening-sweep"></div>
+  <div id="opening-sweep-right" class="opening-sweep"></div>
+  <div id="opening-sweep-up" class="opening-sweep"></div>
+  <div id="gacha-click-to-continue">화면을 클릭하여 캐스팅 진행</div>
+  
+  <!-- [신규] SSR 전용 컷인 컨테이너 -->
+  <div id="ssr-cutin-container">
+    <div id="ssr-cutin-bottom" class="ssr-cutin"></div>
+    <div id="ssr-cutin-top" class="ssr-cutin"></div>
+  </div>
+  
+  <div id="gacha-flash"></div>
+  
+  <!-- [신규] 11시, 5시 가챠 정보 UI 컨테이너 -->
+  <div id="gacha-anim-ui" class="hidden">
+    <div id="gacha-ui-topleft">
+      <div class="gacha-ui-badges">
+        <!-- [신규] 속성 마크 래퍼 및 유리창 닦기 효과 추가 -->
+        <div id="attr-icon-wrapper">
+          <img id="gacha-ui-attr" src="" alt="Attribute">
+          <div class="attr-glare"></div>
+        </div>
+        <!-- 뱃지들을 위아래로 묶어줄 열(Column) 컨테이너 추가 -->
+        <div class="gacha-ui-badges-col">
+          <div id="gacha-ui-class" class="badge"></div>
+          <div id="gacha-ui-roles"></div> <!-- 다중 뱃지를 담을 컨테이너로 변경 -->
+        </div>
+      </div>
+    </div>
+    
+    <!-- 5시 방향: 등급, 이명, 이름, 그리고 개화 뱃지 -->
+    <div id="gacha-ui-bottomright">
+      <div id="gacha-ui-bloom-badge"></div>
+      <div id="gacha-ui-rarity"></div>
+      <div id="gacha-ui-subname"></div>
+      <div id="gacha-ui-name"></div>
+    </div>
+  </div>
+  <div id="gacha-anim-icon"></div>
+  <img id="gacha-anim-char" src="" alt="Character">
+  
+  <!-- [신규] SSR 전용 파티클 이펙트 컨테이너 -->
+  <!-- 캐릭터 일러스트 위로 지나가는 빛무리(유리창 글레이징) 효과 -->
+  <div id="gacha-glare"></div>
+  
+  <!-- SSR 전용 은은한 십자 반짝임(트윙클) 파티클 컨테이너 -->
+  <div id="gacha-twinkles"></div>
+</div>
+
+<!-- === [가챠 연출 및 결과창 오버레이] === -->
+<div id="gacha-result-overlay">
+  <div id="gacha-result-title-text" class="gacha-result-title">✨ Casting Result ✨</div>
+  <!-- 카드가 하나씩 추가될 컨테이너 -->
+  <div id="gacha-card-container"></div>
+  <!-- 결과 확인 후 돌아가는 버튼 (처음엔 숨김) -->
+  <button id="btn-gacha-close" class="execute-btn" style="margin-top: 40px; display: none;">확인</button>
+</div>
+
+<!-- === [캐릭터 정보 모달] === -->
+<div id="char-info-modal" class="modal-overlay">
+  <div class="char-info-panel">
+    <button id="btn-char-info-close" class="char-info-close-btn">&times;</button>
+    <div class="char-info-container">
+      
+      <!-- 좌측 영역: 확장된 가로 영역 일러스트 (1750px 대응) -->
+      <div class="char-info-left">
+        <img id="char-info-img" class="char-info-img" src="" alt="캐릭터 일러스트">
+        <div class="char-info-left-gradient"></div>
+        <div class="char-info-left-content">
+          <!-- 5시 방향 큼직한 속성 마크 추가 (.020 반영) -->
+          <div class="char-info-attr" style="position: absolute; bottom: 40px; right: 20px; z-index: 10;">
+            <img id="char-info-type-icon" src="" alt="Type" style="width: 80px; height: 80px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));">
+          </div>
+          
+          <!-- 좌측 하단 정보 영역 (.022 반영: 간격 조정 및 레이아웃) -->
+          <div class="char-info-left-bottom">
+            <div id="char-info-badges" class="char-info-badges" style="display: flex; gap: 10px; align-items: center;">
+              <div class="holomem-card-rarity" id="char-info-tier-badge" style="display:none; font-size: 1.2rem;"></div>
+              <div id="char-info-role-badges" style="display:flex; gap:4px; flex-wrap:wrap;"></div>
+            </div>
+            <!-- 이명(노란색) 및 이름 -->
+            <div id="char-info-subname" class="char-info-subname" style="color: #f1c40f; font-weight: bold; margin-bottom: 5px;"></div>
+            <div id="char-info-name" class="char-info-name" style="font-size: 2.2rem; font-weight: 900; letter-spacing: 2px;"></div>
+            
+            <!-- 태그 영역 (.022 반영: 메인태그와 키워드 간격) -->
+            <div id="char-info-tags" class="char-info-tags" style="display: flex; gap: 15px; margin-top: 10px;">
+              <div id="char-info-maintag" style="display: flex; gap: 6px;"></div>
+              <!-- 간격 띄우기용 -->
+              <div style="width: 15px;"></div>
+              <div id="char-info-keywords" style="display: flex; gap: 6px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 우측 영역: 정보 탭 및 레벨업 구역 -->
+      <div class="char-info-right">
+        <!-- Tabs -->
+        <div id="char-info-tabs-container" class="char-info-tabs">
+          <button class="char-info-tab active" id="tab-my-char" data-mychar="true">내 캐릭터</button>
+          <button class="char-info-tab" data-star="1" data-level="1">1★01</button>
+          <button class="char-info-tab" data-star="2" data-level="30">2★30</button>
+          <button class="char-info-tab" data-star="3" data-level="60">3★60</button>
+          <button class="char-info-tab" data-star="3" data-level="max">3★MAX</button>
+        </div>
+        
+        <!-- Content Scroll Area -->
+        <div class="char-info-scroll-area">
+          
+          <!-- 레벨 박스 구역 (.019, .020 반영: 별 성급 표기를 레벨 옆으로 이동) -->
+          <div class="char-info-section" id="char-info-level-section">
+            <div class="char-info-level-box" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-radius: 8px;">
+              <div style="display: flex; flex-direction: column; gap: 5px;">
+                <div id="char-info-stars" class="char-info-stars" style="display: flex; gap: 3px;"></div>
+                <span id="lvl-info-text" style="font-size: 1.8rem; font-weight: bold; color: #2c3e50;">Lv.1</span>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+                <div id="bloom-badge-container" class="bloom-badge" style="display: none; cursor: pointer; align-items: center; justify-content: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-weight: bold; font-size: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  🌸 <span id="bloom-badge-level">0</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                  <button id="btn-lvl-up" class="execute-btn" style="padding: 10px 20px;">레벨업</button>
+                  <button id="btn-rank-up" class="execute-btn" style="padding: 10px 20px; background: #f1c40f; color: #000;">승급</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="char-info-divider"></div>
+          
+          <!-- Condition -->
+          <div class="char-info-section" id="char-info-condition-section">
+            <div class="char-info-section-title"><span>❤️</span> 컨디션</div>
+            <div class="char-info-condition">
+              <div class="condition-bar-container">
+                <div class="condition-bar-fill" style="width: 100%;"></div>
+              </div>
+              <span class="condition-text">100 / 100</span>
+              <div class="condition-btn-wrapper">
+                <button class="condition-btn" type="button">현재 패널티</button>
+                <div class="condition-tooltip" id="condition-penalty-tooltip">
+                  <div class="cond-tooltip-header">
+                    <span class="cond-tooltip-title">⚡ 컨디션 상태 및 패널티</span>
+                    <span class="cond-tooltip-cur" id="cond-tooltip-cur-text">현재: 100 / 100</span>
+                  </div>
+                  <div class="cond-tooltip-tiers">
+                    <div class="cond-tier-row tier-normal" id="cond-tier-row-normal">
+                      <div class="cond-tier-range">51 ~ 100</div>
+                      <div class="cond-tier-desc">정상 (패널티 없음)</div>
+                      <span class="cond-tier-badge">정상</span>
+                    </div>
+                    <div class="cond-tier-row tier-tired" id="cond-tier-row-tired">
+                      <div class="cond-tier-range">26 ~ 50</div>
+                      <div class="cond-tier-desc">지쳐감 카드 (덱에 지쳐감 카드 1장 추가)</div>
+                      <span class="cond-tier-badge">주의</span>
+                    </div>
+                    <div class="cond-tier-row tier-danger" id="cond-tier-row-danger">
+                      <div class="cond-tier-range">0 ~ 25</div>
+                      <div class="cond-tier-desc">출전 불가 (전투 출전 불가)</div>
+                      <span class="cond-tier-badge">불가</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="char-info-divider"></div>
+          
+          <!-- Combat Info -->
+          <div class="char-info-section">
+            <div class="char-info-section-title"><span>⚔️</span> 전투 정보</div>
+            <div class="char-info-stat-grid" id="char-info-stat-grid">
+              <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val" id="stat-hp">-</span></div>
+              <div class="stat-item"><span class="stat-label">브레이킹(BP)</span><span class="stat-val" id="stat-bp">-</span></div>
+              <div class="stat-item"><span class="stat-label">어그로</span><span class="stat-val" id="stat-aggro">-</span></div>
+              <div class="stat-item"><span class="stat-label">물리방어</span><span class="stat-val" id="stat-def">-</span></div>
+              <div class="stat-item"><span class="stat-label">마법방어</span><span class="stat-val" id="stat-mdef">-</span></div>
+              <div class="stat-item"><span class="stat-label">저항력</span><span class="stat-val" id="stat-reg">-</span></div>
+              <div class="stat-item"><span class="stat-label">공격력</span><span class="stat-val" id="stat-atk">-</span></div>
+              <div class="stat-item"><span class="stat-label">아이돌력</span><span class="stat-val" id="stat-idol">-</span></div>
+              <div class="stat-item"><span class="stat-label">명중</span><span class="stat-val" id="stat-hitrate">-</span></div>
+              <div class="stat-item"><span class="stat-label">회피</span><span class="stat-val" id="stat-dodge">-</span></div>
+              <div class="stat-item"><span class="stat-label">치명타</span><span class="stat-val" id="stat-crit">-</span></div>
+              <div class="stat-item"><span class="stat-label">속도</span><span class="stat-val" id="stat-spd">-</span></div>
+            </div>
+            <div id="char-info-battle-status-container" style="display:none; margin-top:10px;"></div>
+          </div>
+          
+          <div class="char-info-divider"></div>
+          
+          <!-- Combat Skills -->
+          <div class="char-info-section" id="char-info-combat-skills">
+            <div class="char-info-section-title"><span>🔮</span> 전투 스킬</div>
+            <div id="char-skills-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+          </div>
+          
+          <div class="char-info-divider"></div>
+          
+          <!-- Domestic Info -->
+          <div class="char-info-section">
+            <div class="char-info-section-title"><span>🏠</span> 내정 정보</div>
+            
+            <div class="skill-box skill-domestic">
+              <div class="skill-header">
+                <span class="skill-icon">✨</span>
+                <span class="skill-name" id="skill-domestic-name">내정 패시브</span>
+              </div>
+              <div class="skill-desc" id="skill-domestic">(비어있음)</div>
+            </div>
+            
+            <div class="domestic-stats">
+              <div class="domestic-stat"><span class="d-icon">🎮</span><div class="d-val-box"><span class="d-label">게임</span><span class="d-val" id="d-stat-game">0</span></div></div>
+              <div class="domestic-stat"><span class="d-icon">💬</span><div class="d-val-box"><span class="d-label">토크</span><span class="d-val" id="d-stat-talk">0</span></div></div>
+              <div class="domestic-stat"><span class="d-icon">🎤</span><div class="d-val-box"><span class="d-label">노래</span><span class="d-val" id="d-stat-sing">0</span></div></div>
+              <div class="domestic-stat"><span class="d-icon">💋</span><div class="d-val-box"><span class="d-label">섹시</span><span class="d-val" id="d-stat-sexy">0</span></div></div>
+              <div class="domestic-stat"><span class="d-icon">💡</span><div class="d-val-box"><span class="d-label">기획</span><span class="d-val" id="d-stat-plan">0</span></div></div>
+              <div class="domestic-stat"><span class="d-icon">🔥</span><div class="d-val-box"><span class="d-label">열정</span><span class="d-val" id="d-stat-passion">0</span></div></div>
+            </div>
+          </div>
+          
+          <!-- Core Equip Info -->
+          <div class="char-info-divider"></div>
+                    <div class="char-info-section">
+            <div class="char-info-section-title"><span>💠</span> 장착 코어</div>
+            <div class="char-core-slot-container" style="display: flex; gap: 15px; margin-top: 10px;">
+              <div id="char-info-core-slot" class="core-slot empty" style="flex: 1; border: 2px dashed #444; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: all 0.2s;">
+                <div id="char-info-core-slot-plus" style="font-size: 1.5rem; color: #888; margin-bottom: 5px;">+</div>
+                <div id="char-info-core-slot-text" style="color: #aaa; font-weight: bold;">코어 장착</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tag Info Section -->
+          <div class="char-info-divider"></div>
+          <div class="char-info-section" id="char-info-tags-section">
+            <div class="char-info-section-title"><span>#</span> 태그 정보</div>
+            <div id="char-info-tags-container" style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+            </div>
+          </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- === [레벨업 팝업 모달] (.024 반영) === -->
+<div id="levelup-modal" class="modal-overlay">
+  <div class="modal-content" style="width: 550px; padding: 25px;">
+    <h2 style="margin-bottom: 25px; text-align: center; color: #005599;">캐릭터 레벨업</h2>
+    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 25px; gap: 40px;">
+      <span style="font-size: 2.2rem; font-weight: bold;" id="lvlup-current-lvl">Lv.1</span>
+      <span style="font-size: 2rem; color: #aaa;">➡</span>
+      <span style="font-size: 2.2rem; font-weight: bold; color: #fcc419;" id="lvlup-target-lvl">Lv.1</span>
+    </div>
+    
+    <div style="background: rgba(0,0,0,0.05); border: 1px solid #ccc; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+        <span style="font-weight: bold; color: #333;">필요 경험치</span>
+        <span id="lvlup-exp-text" style="font-weight: bold; color: #333;">0 / 0</span>
+      </div>
+      <!-- 경험치 게이지 바 -->
+      <div style="width: 100%; height: 16px; background: #ddd; border-radius: 8px; overflow: hidden; position: relative;">
+        <div id="lvlup-exp-bar" style="height: 100%; width: 0%; background: #4dabf7; position: absolute; left: 0; transition: width 0.3s;"></div>
+        <div id="lvlup-exp-bar-preview" style="height: 100%; width: 0%; background: #fcc419; position: absolute; left: 0; opacity: 0.8; transition: width 0.3s;"></div>
+      </div>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; margin-bottom: 25px; padding: 0 15px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
+      <span style="font-size: 1.1rem; color: #555;">보유 크레딧: <span id="lvlup-my-credit" style="color:#005599; font-weight: 900;">0</span></span>
+      <span style="font-size: 1.1rem; color: #555;">소모 크레딧: <span id="lvlup-req-credit" style="color:#ff6b6b; font-weight: 900;">0</span></span>
+    </div>
+    
+    <div id="lvlup-items-container" style="display: flex; justify-content: space-around; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
+      <!-- 경험치 아이템 (006, 007, 008) 버튼들이 JS에 의해 생성됨 -->
+    </div>
+    
+    <div style="display: flex; justify-content: center; gap: 15px;">
+      <button id="btn-lvlup-cancel" class="cancel-btn" style="padding: 10px 30px; font-size: 1.2rem;">취소</button>
+      <button id="btn-lvlup-confirm" class="execute-btn" style="padding: 10px 30px; font-size: 1.2rem; background: #00a8ff;">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [승급 팝업 모달] (.024 반영) === -->
+<div id="rankup-modal" class="modal-overlay">
+  <div class="modal-content" style="width: 450px; text-align: center; padding: 25px;">
+    <h2 style="margin-bottom: 25px; color: #005599;">캐릭터 승급</h2>
+    <div style="display: flex; justify-content: center; align-items: center; margin: 25px 0; gap: 40px;">
+      <div id="rankup-current-star" style="font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">⭐</div>
+      <span style="font-size: 2rem; color: #aaa;">➡</span>
+      <div id="rankup-next-star" style="font-size: 2.2rem; color: #fcc419; filter: drop-shadow(0 2px 4px rgba(252,196,25,0.5));">⭐⭐</div>
+    </div>
+    
+    <div style="margin-bottom: 35px; background: rgba(0,0,0,0.03); padding: 15px; border-radius: 8px;">
+      <div style="margin-bottom: 15px; font-weight: bold; font-size: 1.2rem; color: #333;">승급 요구 재료</div>
+      <div id="rankup-materials" style="display: flex; justify-content: center; align-items: center; gap: 20px;">
+        <!-- 필요 재료(조각 등)가 JS에 의해 생성됨 -->
+      </div>
+    </div>
+    
+    <div style="display: flex; justify-content: center; gap: 15px;">
+      <button id="btn-rankup-cancel" class="cancel-btn" style="padding: 10px 30px; font-size: 1.1rem;">취소</button>
+      <button id="btn-rankup-confirm" class="execute-btn" style="padding: 10px 30px; font-size: 1.1rem; background: #f1c40f; color: #000;">승급하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [성장(레벨업/승급) 결과 연출 오버레이] === -->
+<div id="effect-overlay">
+  <div id="effect-content">
+    <div id="effect-title" class="effect-title">Level Up!</div>
+    <div id="effect-subtitle" class="effect-subtitle">10 → 20</div>
+    <div id="effect-stars" class="effect-stars-container"></div>
+  </div>
+</div>
+
+<!-- === [개화 상세 모달] === -->
+<div id="bloom-modal" class="modal-overlay">
+  <div class="modal-content bloom-modal-content" style="width: 450px; text-align: center; padding: 25px; position: relative;">
+    <button id="btn-bloom-close" class="modal-close-btn" style="position: absolute; top: 15px; right: 15px; font-size: 1.5rem; background: none; border: none; cursor: pointer; color: #888;">&times;</button>
+    <h2 style="margin-bottom: 25px; color: #e83e8c;">🌸 개화 (Bloom)</h2>
+    
+    <div style="display: flex; justify-content: center; align-items: center; margin: 20px 0; gap: 20px;">
+      <div id="bloom-current-stage" class="bloom-stage-text" style="font-size: 1.8rem; font-weight: bold;">🌸 0</div>
+    </div>
+    
+    <!-- 전체 효과 리스트 영역 (충분한 높이 확보로 스크롤 방지) -->
+    <div style="margin-bottom: 25px; background: rgba(0,0,0,0.03); padding: 15px; border-radius: 8px; min-height: 350px; max-height: 500px; overflow-y: auto; text-align: left;">
+      <div style="margin-bottom: 10px; font-weight: bold; font-size: 1.1rem; color: #333; text-align: center;">전체 개화 효과</div>
+      <div id="bloom-effect-list" style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- JS가 내용을 동적으로 채움 -->
+      </div>
+    </div>
+    
+    <div style="font-size: 0.9rem; color: #777; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #eee;">
+      <div id="bloom-progress-text" style="font-weight: bold; margin-bottom: 5px; color: #333; font-size: 1.1rem;">0 / 5 🌸</div>
+      <div id="bloom-info-text">같은 캐릭터를 획득할 때마다 자동으로 개화 레벨이 오릅니다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- === [스킬 숙련 강화 모달] === -->
+<div id="skill-mastery-modal" class="modal-overlay">
+  <div class="modal-content skill-mastery-modal-content">
+    <button id="btn-skill-mastery-close" class="modal-close-btn">&times;</button>
+    <div class="skill-mastery-header">
+      <div class="skill-mastery-title">
+        <span>⭐</span> 스킬 숙련도 강화
+      </div>
+    </div>
+
+    <!-- Skill Tab Selectors (고유기 vs 궁극기) -->
+    <div class="skill-mastery-tabs">
+      <button class="skill-mastery-tab active" id="tab-mastery-ss" data-tab="SS">고유기 (SS)</button>
+      <button class="skill-mastery-tab" id="tab-mastery-as" data-tab="AS">궁극기 (AS)</button>
+    </div>
+
+    <!-- Active Skill Details & Mastery Status -->
+    <div class="skill-mastery-skill-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div id="mastery-skill-name" style="font-size: 1.15rem; font-weight: bold; color: #fff;"></div>
+        <span id="mastery-skill-type-badge" class="mastery-badge-type">타입 A</span>
+      </div>
+      <div id="mastery-skill-desc" style="font-size: 0.88rem; color: #ccc; margin-bottom: 12px; line-height: 1.4;"></div>
+
+      <!-- Level & Stepper -->
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-weight: bold; color: #ecf0f1;">숙련도 레벨</span>
+        <span id="mastery-level-text" style="font-size: 1.1rem; font-weight: bold; color: #f1c40f;">Lv. 0 / 7</span>
+      </div>
+      <div class="skill-mastery-level-stepper" id="mastery-stepper">
+        <div class="skill-mastery-step" data-step="1"></div>
+        <div class="skill-mastery-step" data-step="2"></div>
+        <div class="skill-mastery-step" data-step="3"></div>
+        <div class="skill-mastery-step" data-step="4"></div>
+        <div class="skill-mastery-step" data-step="5"></div>
+        <div class="skill-mastery-step" data-step="6"></div>
+        <div class="skill-mastery-step" data-step="7"></div>
+      </div>
+
+      <!-- Current & Next Effect Preview -->
+      <div class="skill-mastery-preview-box">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span style="color: #a4b0be;">현재 효과:</span>
+          <span id="mastery-cur-effect" style="color: #ecf0f1; font-weight: bold;">없음</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: #f39c12;">다음 강화 (+1):</span>
+          <span id="mastery-next-effect" style="color: #2ecc71; font-weight: bold;">-</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Required Materials Grid (아이돌의 혼, 역할군 재료, 크레딧) with Icons -->
+    <div style="font-weight: bold; color: #ecf0f1; font-size: 0.95rem; margin-bottom: 6px;">강화 필요 재료</div>
+    <div class="skill-mastery-mats-grid" id="mastery-mats-container">
+      <!-- 3 Material Cards dynamically populated by JS with Icons -->
+    </div>
+
+    <!-- Action Upgrade Button -->
+    <button id="btn-mastery-do-upgrade" class="btn-mastery-upgrade">스킬 숙련 강화</button>
+  </div>
+</div>
+
+
+<!-- ================= [상점 씬] ================= -->
+<div id="scene-shop" class="scene">
+  
+    <div class="top-nav">
+      <div style="flex-grow: 1; display: flex; gap: 15px; align-items: center; margin-left: 20px;">
+        <!-- Item_005 -->
+        <div id="shop-currency-display-005" class="currency-display" style="display: inline-block; background: rgba(0,0,0,0.7); padding: 5px 15px; border-radius: 20px; border: 2px solid #3498db;">
+          <img src="" id="shop-currency-icon-005" style="width: 24px; height: 24px; vertical-align: middle;">
+          <span id="shop-currency-amount-005" style="color: #fff; font-weight: bold; font-size: 1.2rem; margin-left: 5px; vertical-align: middle;">0</span>
+        </div>
+        <!-- Item_039 -->
+        <div id="shop-currency-display-039" class="currency-display" style="display: inline-block; background: rgba(0,0,0,0.7); padding: 5px 15px; border-radius: 20px; border: 2px solid #e74c3c;">
+          <img src="" id="shop-currency-icon-039" style="width: 24px; height: 24px; vertical-align: middle;">
+          <span id="shop-currency-amount-039" style="color: #fff; font-weight: bold; font-size: 1.2rem; margin-left: 5px; vertical-align: middle;">0</span>
+        </div>
+      </div>
+      <button class="circle-btn nav-btn btn-help">?</button>
+      <button class="circle-btn nav-btn btn-back">↩</button>
+      <button class="circle-btn nav-btn btn-home">🏠</button>
+    </div>
+    <div class="scene-title" style="display:none;">상점</div>
+
+  <div class="shop-tabs" style="box-sizing: border-box; width: 90%; max-width: 1200px; display: flex; gap: 10px; padding: 0 20px; margin-bottom: -10px; z-index: 10; position: relative; margin: 0 auto; justify-content: flex-start;">
+    <button id="tab-shop-general" class="shop-tab-btn active" style="padding: 10px 20px; border-radius: 12px 12px 0 0; border: none; background: #3498db; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 -2px 5px rgba(0,0,0,0.2);">일반 상점</button>
+    <button id="tab-shop-song" class="shop-tab-btn" style="padding: 10px 20px; border-radius: 12px 12px 0 0; border: none; background: rgba(0,0,0,0.4); color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 -2px 5px rgba(0,0,0,0.2);">노래 상점</button>
+    <button id="tab-shop-ruby" class="shop-tab-btn" style="padding: 10px 20px; border-radius: 12px 12px 0 0; border: none; background: rgba(0,0,0,0.4); color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 -2px 5px rgba(0,0,0,0.2);">루비 상점</button>
+  </div>
+
+  <div class="shop-container" style="width: 90%; max-width: 1200px; display: flex; height: calc(100% - 140px); padding: 20px; box-sizing: border-box; gap: 20px; background: rgba(0,0,0,0.3); border-radius: 0 16px 16px 16px; margin: 0 auto;">
+    <!-- 아이템 목록 영역 -->
+    <div id="shop-items-grid" style="flex: 2; display: flex; flex-wrap: wrap; gap: 15px; align-content: flex-start; overflow-y: auto; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 16px; border: 2px solid rgba(255,255,255,0.2);">
+      <!-- 아이템 카드들이 여기에 추가됨 -->
+    </div>
+    
+    <!-- 아이템 상세 정보 및 구매 패널 -->
+    <div id="shop-purchase-panel" style="flex: 1; background: linear-gradient(135deg, rgba(20,40,80,0.95), rgba(10,20,50,0.95)); border-radius: 16px; border: 3px solid #005ce6; padding: 20px; color: #333; display: none; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <div>
+            <div style="text-align: center; margin-bottom: 20px;">
+                <img id="shop-panel-icon" src="" style="width: 120px; height: 120px; border-radius: 16px; border: 2px solid #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.5);">
+            </div>
+            <h2 id="shop-panel-name" style="text-align: center; margin: 0 0 10px 0; color: #b3d9ff; text-shadow: 1px 1px 2px #000;">아이템 이름</h2>
+            <div id="shop-panel-owned" style="margin-top: 10px; font-size: 1.1rem; color: #ffcc00; font-weight: bold; text-align: center;">보유 중: 0개</div>
+            <div id="shop-panel-desc" style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; font-size: 1.1rem; line-height: 1.5; color: #e6f2ff; min-height: 80px;">설명</div>
+            
+            <div style="margin-top: 25px; background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 1.1rem; color: #ccc;">단가</span>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <img src="" class="shop-panel-currency-icon" style="width:20px; height:20px;">
+                        <span id="shop-panel-price" style="font-size: 1.3rem; font-weight: bold; color: #fff;">0</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 10px;">
+                    <span style="font-size: 1.2rem; font-weight: bold; color: #ffcc00;">총합계</span>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <img src="" class="shop-panel-currency-icon" style="width:24px; height:24px;">
+                        <span id="shop-panel-total" style="font-size: 1.8rem; font-weight: bold; color: #ffcc00; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px;">
+                <button id="shop-btn-minus" style="width: 40px; height: 40px; font-size: 1.5rem; font-weight: bold; border-radius: 8px; border: none; background: #555; color: #fff; cursor: pointer; transition: 0.2s;">-</button>
+                <input type="number" id="shop-quantity-input" value="1" min="1" style="width: 80px; height: 40px; text-align: center; font-size: 1.4rem; font-weight: bold; border-radius: 8px; border: 2px solid #005ce6; background: rgba(0,0,0,0.5); color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);" readonly>
+                <button id="shop-btn-plus" style="width: 40px; height: 40px; font-size: 1.5rem; font-weight: bold; border-radius: 8px; border: none; background: #005ce6; color: #333; cursor: pointer; transition: 0.2s;">+</button>
+            </div>
+            
+            <div style="display: flex; justify-content: center; gap: 6px; margin-bottom: 20px; flex-wrap: wrap;">
+                <button class="shop-bulk-btn" data-val="-100" data-amount="-100">-100</button>
+                <button class="shop-bulk-btn" data-val="-10" data-amount="-10">-10</button>
+                <button class="shop-bulk-btn" data-val="-1" data-amount="-1">-1</button>
+                <button class="shop-bulk-btn" data-val="1" data-amount="1">+1</button>
+                <button class="shop-bulk-btn" data-val="10" data-amount="10">+10</button>
+                <button class="shop-bulk-btn" data-val="100" data-amount="100">+100</button>
+                <button class="shop-bulk-btn" id="shop-btn-max">MAX</button>
+            </div>
+            
+            <button id="shop-btn-buy" style="width: 100%; padding: 15px; border-radius: 12px; font-size: 1.5rem; font-weight: bold; background: linear-gradient(135deg, #00c6ff, #0072ff); color: #333; border: 2px solid rgba(255,255,255,0.5); box-shadow: 0 5px 15px rgba(0, 114, 255, 0.4); cursor: pointer; transition: 0.2s;">구매하기</button>
+        </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- 상점 전용 구매 확인 모달 -->
+<div id="shop-confirm-modal" class="modal-overlay">
+  <div class="modal-content glass-panel" style="width: 400px; text-align: center; padding: 25px; background: rgba(255, 255, 255, 0.95); border: 2px solid #b3d9ff; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+    <h2 id="shop-confirm-title" style="margin-top:0; color: #005599;">구매 확인</h2>
+    <p id="shop-confirm-text" style="font-size: 1.2rem; line-height: 1.5; color: #333; font-weight: bold;">정말 구매하시겠습니까?</p>
+    <div style="margin-top: 25px; display: flex; justify-content: center; gap: 15px;">
+      <button id="shop-btn-confirm-cancel" class="cancel-btn" style="padding: 10px 25px; font-size: 1.1rem;">취소</button>
+      <button id="shop-btn-confirm-ok" class="execute-btn" style="padding: 10px 25px; font-size: 1.1rem; background: #00a8ff; color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; font-weight: bold;">확인</button>
+    </div>
+  </div>
+</div>
+
+
+  
+  <!-- 코어 승급 모달 -->
+  <div id="core-promote-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+      <div class="modal-content glass-panel" style="width: 400px; max-height: 80vh; background: white; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 15px;">
+          <h2 style="margin: 0; color: #333; text-align: center;">코어 승급</h2>
+          
+          <div style="text-align: center; margin-bottom: 10px;">
+              <div id="promote-opt-name" style="font-size: 1.5rem; font-weight: bold; color: #00d2d3;">옵션명</div>
+              <div style="font-size: 1.2rem; color: #666; margin-top: 5px;">
+                  <span id="promote-tier-from" style="color: #333; font-weight: bold;">I</span> ➡️ <span id="promote-tier-to" style="color: #e74c3c; font-weight: bold;">II</span>
+              </div>
+          </div>
+
+          <div style="background: #f1f2f6; padding: 15px; border-radius: 8px; text-align: center;">
+              <div style="font-weight: bold; color: #333; margin-bottom: 10px;">필요 코어 조각</div>
+              <div style="font-size: 1.5rem; color: #e74c3c; font-weight: bold;"><span id="promote-req-fragments">0</span> 개</div>
+              <div style="font-size: 0.9rem; color: #666; margin-top: 5px;">보유: <span id="promote-my-fragments">0</span> 개</div>
+          </div>
+
+          <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
+              <button id="btn-confirm-promote" class="primary-btn" style="padding: 10px 30px; font-size: 1.2rem; background: #00d2d3; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold;">승급하기</button>
+              <button id="btn-cancel-promote" class="secondary-btn" style="padding: 10px 30px; font-size: 1.2rem; background: #95a5a6; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold;">취소</button>
+          </div>
+      </div>
+  </div>
+
+  
+  <!-- 코어 강화 모달 -->
+  <div id="core-enhance-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+      <div class="modal-content glass-panel" style="width: 600px; max-height: 80vh; background: white; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 15px;">
+          <h2 id="enhance-modal-title" style="margin: 0; color: #333; text-align: center;">[예리함 I] 강화</h2>
+          
+          <div style="background: #f1f2f6; padding: 15px; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold; color: #333;">
+                  <span>목표 VP: <span id="enhance-target-vp">10</span></span>
+                  <span>현재 투입: <span id="enhance-current-vp" style="color: #0984e3;">0</span> VP</span>
+              </div>
+              <div style="width: 100%; height: 15px; background: #dfe4ea; border-radius: 8px; overflow: hidden; position: relative;">
+                  <div id="enhance-progress-bar" style="width: 0%; height: 100%; background: #0984e3; transition: width 0.2s;"></div>
+                  <div id="enhance-progress-notches" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+              </div>
+          </div>
+
+          <div style="background: #f1f2f6; padding: 15px; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                  <div>
+                      <div style="font-weight: bold; color: #333;">코어 조각 사용 (10개 = 1 VP)</div>
+                      <div style="font-size: 0.9rem; color: #666;">보유 조각: <span id="enhance-my-fragments">0</span> 개</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 5px;">
+                      <span id="enhance-frag-vp-text" style="color: #0984e3; font-weight: bold;">+0 VP</span>
+                      <span id="enhance-req-fragments" style="font-weight: bold; color: #e74c3c; margin-left: 10px;">0</span> 개 투입
+                  </div>
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 5px;">
+                  <button id="btn-frag-minus-10" class="frag-btn">-10</button>
+                  <button id="btn-frag-minus-1" class="frag-btn">-1</button>
+                  <button id="btn-frag-plus-1" class="frag-btn">+1</button>
+                  <button id="btn-frag-plus-10" class="frag-btn">+10</button>
+                  <button id="btn-frag-max" class="frag-btn">MAX</button>
+                  <button id="btn-frag-reset" class="frag-btn">초기화</button>
+              </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+              <div style="font-weight: bold; color: #333;">재료 선택 (코어 투입)</div>
+              <select id="enhance-material-sort" style="padding: 5px; border-radius: 5px; border: 1px solid #ccc;">
+                  <option value="asc">코어 밸류 낮은 순</option>
+                  <option value="desc">코어 밸류 높은 순</option>
+              </select>
+          </div>
+          
+          <div id="enhance-material-list" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; border: 1px solid #ced4da; padding: 10px; border-radius: 8px; min-height: 200px;">
+              <!-- 재료 목록 동적 생성 -->
+          </div>
+
+          <div style="display: flex; justify-content: center; gap: 10px; margin-top: 10px;">
+              <button id="btn-confirm-enhance" class="primary-btn" style="padding: 10px 30px; font-size: 1.2rem; background: #0984e3; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold;" disabled>강화하기</button>
+              <button id="btn-cancel-enhance" class="secondary-btn" style="padding: 10px 30px; font-size: 1.2rem; background: #95a5a6; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold;">취소</button>
+          </div>
+      </div>
+  </div>
+
+
+
+
+  <!-- === [캐릭터 코어 장착 리스트 모달] === -->
+  <div id="char-core-equip-modal" class="modal-overlay" style="z-index: 15000;">
+    <div class="modal-content glass-panel" style="width: 80%; max-width: 800px; max-height: 80vh; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h3 style="margin: 0; color: #00d2d3;">장착 가능한 코어</h3>
+          <select id="core-equip-sort" style="padding: 5px 10px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; outline: none; cursor: pointer;">
+            <option value="default" style="color: #000;">기본 정렬 (미장착순)</option>
+            <option value="vp-desc" style="color: #000;">VP 높은 순</option>
+            <option value="vp-asc" style="color: #000;">VP 낮은 순</option>
+          </select>
+        </div>
+      <div id="char-core-equip-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 10px; -ms-overflow-style: none; scrollbar-width: none;">
+      </div>
+      <div class="modal-btn-group" style="margin-top: 20px;">
+        <button id="btn-char-core-equip-close" class="cancel-btn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Studio Roster Modal -->
+  <div id="studio-roster-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 800px; width: 90%;">
+      <h3 style="margin-bottom: 20px; color: #005599; font-weight: bold; text-align: center;">배치 대기열</h3>
+      <div class="studio-roster-list-modal" id="studio-roster-list-modal"></div>
+      <div class="modal-btn-group">
+        <button id="btn-close-studio-roster" class="cancel-btn">닫기</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/ui_deck.js?v=004276" type="module"></script>
+
+<!-- === [덱 BGM 노래 모달] === -->
+<div id="deck-song-modal" class="modal-overlay">
+  <div class="modal-content glass-panel" style="width: 500px; max-width: 90%; max-height: 80vh; display: flex; flex-direction: column;">
+    <h3 style="margin-bottom: 20px; color: #005599;">전투 BGM 설정</h3>
+    <div id="deck-song-list-container" style="flex: 1; overflow-y: auto; padding-right: 10px; display: flex; flex-direction: column; gap: 10px;">
+      <!-- 노래 목록 JS 렌더링 -->
+    </div>
+    <div class="modal-btn-group" style="margin-top: 20px; display: flex; justify-content: center; gap: 15px;">
+      <button id="btn-close-deck-song" class="cancel-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- === [덱 키즈나 모달] === -->
+<div id="deck-kizuna-modal" class="modal-overlay">
+  <div class="modal-content glass-panel" style="width: 600px; max-width: 90%; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;">
+    <h3 style="margin-bottom: 20px; color: #005599; text-align: center;">덱 키즈나 시너지</h3>
+    <div style="font-size: 0.9rem; color: #555; text-align: center; margin-bottom: 15px;">
+      * 덱 키즈나 점수는 특별한 보너스를 제공하지 않으며, 특정 던전의 입장 조건 등으로 사용됩니다.
+    </div>
+    <div id="deck-kizuna-list-container" style="flex: 1; overflow-y: auto; padding-right: 10px; display: flex; flex-direction: column; gap: 10px;">
+      <!-- 키즈나 목록 JS 렌더링 -->
+    </div>
+    <div class="modal-btn-group" style="margin-top: 20px; display: flex; justify-content: center;">
+      <button id="btn-close-deck-kizuna" class="cancel-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- === Snack Modal === -->
+<div id="snack-modal" class="modal-overlay" style="z-index: 9999;" onclick="if(event.target === this) this.classList.remove('show');">
+  <div class="modal-content glass-panel" style="max-width: 500px; text-align: center; background: rgba(30, 39, 46, 0.95);">
+    <h2 style="margin-top: 0; color: #f1c40f;">🍱 간식 바구니</h2>
+    <p style="color: #ecf0f1; font-size: 0.95em; margin-bottom: 12px; font-weight: bold;">
+      컨디션이 5 이하인 휴식 중의 홀로멤이 자동으로 섭취하는 간식입니다.
+    </p>
+    <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 14px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+      <div style="text-align: left;">
+        <div style="color: #ecf0f1; font-weight: bold; font-size: 0.9rem;">최소 남길 수량 (자동 섭취 방지)</div>
+        <div style="color: #94a3b8; font-size: 0.78rem; margin-top: 2px;">설정한 수량 이하로는 간식을 자동으로 먹지 않고 보존합니다.</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <input type="number" id="snack-reserve-input" min="0" max="999" value="0" style="width: 65px; padding: 5px 6px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #38bdf8; font-weight: bold; text-align: center; font-size: 1rem;">
+        <span style="color: #cbd5e1; font-size: 0.85rem;">개</span>
+      </div>
+    </div>
+    <div id="snack-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 48vh; overflow-y: auto; margin-bottom: 20px;">
+    </div>
+    <div class="modal-btn-group" style="margin-top: 15px;">
+        <button class="execute-btn" style="width: 100%;" onclick="document.getElementById('snack-modal').classList.remove('show')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- === Food Recovery Modal (🍖) === -->
+<div id="food-modal" class="modal-overlay" style="z-index: 9999;" onclick="if(event.target === this) this.classList.remove('show');">
+  <div class="modal-content glass-panel" style="max-width: 620px; width: 92%; max-height: 85vh; display: flex; flex-direction: column; background: rgba(24, 32, 44, 0.98); border: 2px solid #f97316; border-radius: 12px; padding: 22px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); text-align: left;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 10px;">
+      <h2 style="margin: 0; color: #f97316; font-size: 1.35rem; display: flex; align-items: center; gap: 8px;">
+        <span>🍖</span> 캐릭터 컨디션 즉시 회복
+      </h2>
+      <button id="btn-close-food-modal" class="circle-btn" style="background: rgba(255,255,255,0.12); color: #fff; border: none; font-size: 1.1rem; width: 32px; height: 32px; cursor: pointer; border-radius: 50%;">✕</button>
+    </div>
+    <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0; margin-bottom: 12px;">
+      캐릭터를 선택(체크)한 후, 하단의 음식을 클릭하면 컨디션이 즉시 회복됩니다.
+    </p>
+    
+    <!-- Character List (Scrollable) -->
+    <div id="food-char-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: 48vh; padding-right: 6px; margin-bottom: 15px;">
+    </div>
+
+    <!-- Food Selection Section (Bottom) -->
+    <div style="background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 12px 16px;">
+      <div style="font-size: 0.85rem; color: #cbd5e1; font-weight: bold; margin-bottom: 8px;">
+        먹일 음식 선택 (보유량)
+      </div>
+      <div id="food-items-row" style="display: flex; justify-content: space-around; gap: 10px;">
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  <!-- AP -> Ticket Modal -->
+  <div id="ap-to-ticket-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="width: 400px; text-align: center;">
+      <h2 style="margin-bottom: 15px; color: #333;">AP 변환</h2>
+      <p style="margin-bottom: 10px; font-size: 1.1rem; color: #555;">20 AP를 소모하여 1 AP 티켓을 생성합니다.</p>
+      
+      <div style="margin: 20px 0;">
+        <input type="range" id="ap-to-ticket-slider" min="1" max="1" value="1" style="width: 80%;">
+        <div style="margin-top: 10px; font-weight: bold; font-size: 1.2rem; color: #e74c3c;">
+          <span id="ap-to-ticket-cost">20</span> AP -> <span id="ap-to-ticket-gain">1</span> 티켓
+        </div>
+      </div>
+
+      <div class="modal-btn-group">
+        <button id="btn-confirm-ap-to-ticket" class="execute-btn">변환</button>
+        <button id="btn-cancel-ap-to-ticket" class="cancel-btn">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticket -> AP Modal -->
+  <div id="ticket-to-ap-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="width: 400px; text-align: center;">
+      <h2 style="margin-bottom: 15px; color: #333;">AP 충전</h2>
+      <p style="margin-bottom: 10px; font-size: 1.1rem; color: #555;">1 AP 티켓을 소모하여 20 AP를 충전합니다.</p>
+      
+      <div style="margin: 20px 0;">
+        <input type="range" id="ticket-to-ap-slider" min="1" max="1" value="1" style="width: 80%;">
+        <div style="margin-top: 10px; font-weight: bold; font-size: 1.2rem; color: #2ecc71;">
+          <span id="ticket-to-ap-cost">1</span> 티켓 -> <span id="ticket-to-ap-gain">20</span> AP
+        </div>
+      </div>
+
+      <div class="modal-btn-group">
+        <button id="btn-confirm-ticket-to-ap" class="execute-btn">충전</button>
+        <button id="btn-cancel-ticket-to-ap" class="cancel-btn">취소</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Account Level Up Modal -->
+  <div id="account-levelup-modal" class="modal-overlay" style="z-index: 20000;">
+    <div class="modal-content glass-panel" style="width: 400px; text-align: center; border: 2px solid #f1c40f; box-shadow: 0 0 20px rgba(241, 196, 15, 0.5);">
+      <h2 style="margin-bottom: 10px; color: #f1c40f; font-size: 1.8rem; text-shadow: 1px 1px 2px #000;">LEVEL UP!</h2>
+      <div style="font-size: 1.5rem; margin-bottom: 20px; font-weight: bold; color: #fff;">
+        <span id="account-levelup-old">1</span> ➔ <span id="account-levelup-new" style="color: #f1c40f; font-size: 2rem;">2</span>
+      </div>
+      <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 1.1rem; color: #bdc3c7;">보상 획득</h3>
+        <div id="account-levelup-rewards" style="display: flex; flex-direction: column; gap: 8px; align-items: center; color: #fff; font-weight: bold;">
+          <!-- 렌더링 영역 -->
+        </div>
+      </div>
+      <div class="modal-btn-group">
+        <button id="btn-close-account-levelup" class="execute-btn" style="width: 100%; font-size: 1.1rem;">확인</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Account Creation Modal -->
+  <div id="account-creation-modal" class="modal-overlay" style="z-index: 30000;">
+    <div class="modal-content glass-panel" style="width: 400px; text-align: center;">
+      <h2 style="margin-bottom: 15px; color: #333;">프로듀서명 입력</h2>
+      <p style="margin-bottom: 20px; font-size: 1rem; color: #555;">사용하실 닉네임을 입력해주세요.<br>(한글 10자, 영문/숫자 20자 이내)</p>
+      
+      <input type="text" id="input-account-name" placeholder="닉네임 입력" style="width: 80%; padding: 10px; font-size: 1.2rem; border-radius: 8px; border: 2px solid #3498db; margin-bottom: 20px; text-align: center;">
+      
+      <div class="modal-btn-group">
+        <button id="btn-confirm-account-name" class="execute-btn" style="width: 100%;">확인</button>
+      </div>
+    </div>
+  </div>
+
+
+<!-- Issue Modal -->
+
+<!-- Issue Modal -->
+<div id="issue-modal" class="modal-overlay" onclick="if(event.target === this) this.classList.remove('show');">
+    <div class="modal-content" style="background: #ffffff; width: 800px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column; transform: translateY(0) scale(1);">
+        <h2 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between;">
+            <span>이슈 (도전적 제약)</span>
+            <span id="issue-total-point" style="color: #e74c3c; font-weight: bold;">총 0 P</span>
+        </h2>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="font-weight: bold; margin-bottom: 5px;">이슈 추가 보상 (리허설)</div>
+            <div id="issue-bonus-desc" style="font-size: 0.95rem; color: #555;">이슈 포인트 합계에 따라 추가 보상을 획득할 수 있습니다.</div>
+        </div>
+        <div id="issue-list-container" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 10px; text-align: left;">
+            <!-- Issues rendered here -->
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px;">
+            <button class="cancel-btn" onclick="document.getElementById('issue-modal').classList.remove('show');">취소</button>
+            <button class="execute-btn" style="background: #f39c12;" onclick="window.saveRehearsalIssues()">저장하기</button>
+            <button class="execute-btn" style="background: #3498db;" onclick="window.applyRehearsalIssues()">적용하기</button>
+        </div>
+    </div>
+</div>
+
+
+  <!-- Live Result Modal -->
+  <div id="live-result-modal" class="modal-overlay">
+    <div class="modal-content glass-panel" style="width: 500px; text-align: center;">
+      <h2 style="margin-bottom: 15px; color: #333;">라이브 결산</h2>
+      <div id="live-result-content" style="margin: 20px 0; font-size: 1.1rem; color: #555;">
+        <!-- content here -->
+      </div>
+      <div class="modal-btn-group" style="margin-top: 20px;">
+        <button class="execute-btn" style="width: 100%;" onclick="document.getElementById('live-result-modal').classList.remove('show')">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rehearsal Multi-Skip Modal -->
+  <div id="rehearsal-skip-modal" class="modal-overlay" style="z-index: 21000;">
+    <div class="modal-content glass-panel" style="width: 500px; text-align: center; border: 2px solid #27ae60; box-shadow: 0 8px 30px rgba(39, 174, 96, 0.4);">
+      <h2 style="margin-bottom: 5px; color: #27ae60; font-size: 1.8rem;">⚡ 스테이지 파밍 스킵</h2>
+      <div id="skip-stage-info" style="font-size: 1.1rem; color: #34495e; font-weight: bold; margin-bottom: 15px;"></div>
+      
+      <!-- AP and Skip Tickets status -->
+      <div style="display: flex; justify-content: space-around; background: rgba(0,0,0,0.06); padding: 10px; border-radius: 10px; margin-bottom: 15px; font-size: 1.05rem;">
+        <div>보유 AP: <b id="skip-player-ap" style="color: #e67e22;">0</b></div>
+        <div>보유 스킵권: <b id="skip-player-ticket" style="color: #27ae60;">0</b></div>
+      </div>
+
+      <!-- Slider and count controls -->
+      <div style="background: rgba(255,255,255,0.8); border: 1px solid #ddd; padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-weight: bold; font-size: 1.1rem; color: #2c3e50;">스킵 횟수 설정</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button id="btn-skip-count-minus" class="cancel-btn" style="width: 32px; height: 32px; padding: 0; font-size: 1.2rem; font-weight: bold; border-radius: 6px;">-</button>
+            <span id="skip-count-display" style="font-size: 1.5rem; font-weight: bold; color: #27ae60; min-width: 45px; text-align: center;">1</span>
+            <button id="btn-skip-count-plus" class="cancel-btn" style="width: 32px; height: 32px; padding: 0; font-size: 1.2rem; font-weight: bold; border-radius: 6px;">+</button>
+            <button id="btn-skip-count-max" class="execute-btn" style="padding: 4px 10px; font-size: 0.9rem; margin-left: 5px; background: #3498db;">최대</button>
+          </div>
+        </div>
+        <input type="range" id="skip-count-slider" min="1" max="10" value="1" style="width: 100%; accent-color: #27ae60; cursor: pointer;">
+      </div>
+
+      <!-- Expected rewards and cost preview -->
+      <div style="background: rgba(0,0,0,0.04); border-radius: 12px; padding: 12px; margin-bottom: 20px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 6px;">
+          <span>소모 비용:</span>
+          <span><b id="skip-cost-ap" style="color: #e67e22;">0</b> AP / <b id="skip-cost-ticket" style="color: #27ae60;">0</b> 스킵권</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 1rem; margin-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 6px;">
+          <span>예상 계정 경험치:</span>
+          <span style="color: #2980b9; font-weight: bold;"><span id="skip-expected-exp">0</span> EXP</span>
+        </div>
+        <div style="font-size: 0.95rem; font-weight: bold; color: #555; margin-bottom: 8px;">예상 획득 보상</div>
+        <div id="skip-expected-rewards" style="display: flex; gap: 8px; flex-wrap: wrap; min-height: 45px; align-items: center;"></div>
+      </div>
+
+      <div class="modal-btn-group">
+        <button id="btn-cancel-rehearsal-skip" class="cancel-btn" style="flex: 1; padding: 12px;">취소</button>
+        <button id="btn-confirm-rehearsal-skip" class="execute-btn" style="flex: 1.5; padding: 12px; background: #27ae60; font-size: 1.15rem; font-weight: bold;">스테이지 스킵 시작</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage Clear / Skip Rewards Modal -->
+  <div id="stage-reward-modal" class="modal-overlay" style="z-index: 22000;">
+    <div class="modal-content glass-panel" style="width: 480px; text-align: center; border: 3px solid #f1c40f; box-shadow: 0 10px 40px rgba(241, 196, 15, 0.4); animation: popIn 0.3s ease;">
+      <h2 style="margin-bottom: 5px; color: #f39c12; font-size: 2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">🎉 STAGE CLEAR!</h2>
+      <div id="stage-reward-subtitle" style="font-size: 1.1rem; color: #555; margin-bottom: 15px; font-weight: bold;">리허설 스테이지 클리어 보상</div>
+      
+      <!-- Account EXP Acquired -->
+      <div style="background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(41, 128, 185, 0.25)); border: 2px solid #3498db; border-radius: 12px; padding: 12px; margin-bottom: 18px; display: flex; align-items: center; justify-content: center; gap: 15px;">
+        <span style="font-size: 1.8rem;">⭐</span>
+        <div style="text-align: left;">
+          <div style="font-size: 0.9rem; color: #555; font-weight: bold;">계정 경험치 획득</div>
+          <div style="font-size: 1.4rem; color: #2980b9; font-weight: bold;"><span id="stage-reward-exp-val">+0</span> EXP</div>
+        </div>
+      </div>
+
+      <!-- Item Rewards List -->
+      <div style="background: rgba(255,255,255,0.85); border-radius: 12px; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px;">
+        <div style="font-size: 1.05rem; font-weight: bold; color: #2c3e50; margin-bottom: 12px; text-align: left;">획득 아이템 목록</div>
+        <div id="stage-reward-items-container" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 250px; overflow-y: auto;">
+          <!-- JS dynamic items -->
+        </div>
+      </div>
+
+      <button id="btn-close-stage-reward" class="execute-btn" style="width: 100%; padding: 14px; font-size: 1.25rem; font-weight: bold; background: linear-gradient(135deg, #f39c12, #e67e22); border: none; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4);">확인</button>
+    </div>
+  </div>
+
+  <!-- Rehearsal Defeat & Guidance Modal -->
+  <div id="stage-defeat-modal" class="modal-overlay" style="z-index: 22000;">
+    <div class="modal-content glass-panel" style="width: 520px; text-align: center; border: 3px solid #e74c3c; box-shadow: 0 10px 40px rgba(231, 76, 60, 0.4);">
+      <h2 style="margin-bottom: 5px; color: #e74c3c; font-size: 2rem;">💀 작전 실패</h2>
+      <div style="font-size: 1.05rem; color: #7f8c8d; margin-bottom: 15px;">리허설 스테이지 공략에 실패하였습니다.</div>
+
+      <!-- AP Refund/Preservation Banner -->
+      <div style="background: rgba(46, 204, 113, 0.15); border: 2px solid #2ecc71; border-radius: 10px; padding: 10px 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; justify-content: center;">
+        <span style="font-size: 1.5rem;">🛡️</span>
+        <span style="font-size: 1.05rem; color: #27ae60; font-weight: bold;">전투 패배로 소모된 AP는 없으며, 전액 보존되었습니다.</span>
+      </div>
+
+      <!-- Directional Guidance Badges -->
+      <div style="text-align: left; margin-bottom: 20px;">
+        <div style="font-size: 1.05rem; font-weight: bold; color: #2c3e50; margin-bottom: 10px;">💡 공략을 위한 추천 성장 방향</div>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- 1. 조합 변경 -->
+          <div class="defeat-guide-card" style="display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,0.9); padding: 10px 15px; border-radius: 10px; border-left: 5px solid #3498db; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+            <div style="font-size: 1.8rem;">🔄</div>
+            <div>
+              <div style="font-weight: bold; color: #2980b9; font-size: 1rem;">캐릭터 조합 및 속성 상성 변경</div>
+              <div style="font-size: 0.85rem; color: #555;">상대 속성에 강한 유리한 속성 홀로멤을 배치하세요. 상성 우위 시 1.5배 피해 및 BP 추가 차감이 발생합니다.</div>
+            </div>
+          </div>
+
+          <!-- 2. 레벨 및 승급 -->
+          <div class="defeat-guide-card" style="display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,0.9); padding: 10px 15px; border-radius: 10px; border-left: 5px solid #e67e22; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+            <div style="font-size: 1.8rem;">⬆️</div>
+            <div>
+              <div style="font-weight: bold; color: #d35400; font-size: 1rem;">캐릭터 레벨업 및 개화(승급)</div>
+              <div style="font-size: 0.85rem; color: #555;">보유 홀로멤 메뉴에서 캐릭터 레벨을 올리고 개화 단계를 높여 기초 공격력, 체력, 패시브를 해금하세요.</div>
+            </div>
+          </div>
+
+          <!-- 3. 코어 장착 및 강화 -->
+          <div class="defeat-guide-card" style="display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,0.9); padding: 10px 15px; border-radius: 10px; border-left: 5px solid #9b59b6; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+            <div style="font-size: 1.8rem;">💎</div>
+            <div>
+              <div style="font-weight: bold; color: #8e44ad; font-size: 1rem;">코어 장착 및 옵션 강화</div>
+              <div style="font-size: 0.85rem; color: #555;">홀로멤 속성에 맞는 고티어 코어를 제작·장착하고 옵션을 강화하여 강력한 추가 스탯을 확보하세요.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-close-stage-defeat" class="execute-btn" style="width: 100%; padding: 12px; font-size: 1.15rem; font-weight: bold; background: #7f8c8d; border: none;">확인</button>
+    </div>
+  </div>
+
+
+<div id="hold-gauge" style="display:none; position:fixed; width:50px; height:50px; border-radius:50%; pointer-events:none; z-index:9999; transform:translate(-50%, -50%);">
+    <div class="hold-gauge-inner" style="width:100%; height:100%; border-radius:50%; background: conic-gradient(#f1c40f 0%, transparent 0%);"></div>
+    <div style="position:absolute; top:4px; left:4px; right:4px; bottom:4px; background:#fff; border-radius:50%;"></div>
+</div>
+</body>
+</html>
