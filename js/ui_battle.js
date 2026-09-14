@@ -3650,7 +3650,7 @@ function handleBattleExit() {
   const isSurrendered = Boolean(window.isBattleSurrendered);
   window.isBattleSurrendered = false;
 
-  // Fatigue deduction on manual battle (auto battle: 0 consumed, manual battle: -10 condition for deployed members)
+  // Fatigue deduction on manual battle (auto battle: 0 consumed, manual battle: -3 condition for deployed members)
   // Surrendered battles do not consume condition
   if (!isSurrendered && ctx && !isAutoBattleActive && activeArenaEngine && activeArenaEngine.state && activeArenaEngine.state.teamA) {
     activeArenaEngine.state.teamA.characters.forEach(c => {
@@ -3661,7 +3661,7 @@ function handleBattleExit() {
         PlayerData.characterStats[charId] = { level: 1, star: 1, exp: 0, bloom: 0, condition: 100 };
       }
       const curCond = PlayerData.characterStats[charId].condition !== undefined ? PlayerData.characterStats[charId].condition : 100;
-      PlayerData.characterStats[charId].condition = Math.max(0, curCond - 10);
+      PlayerData.characterStats[charId].condition = Math.max(0, curCond - 3);
     });
     if (window.savePlayerData) window.savePlayerData();
   }
