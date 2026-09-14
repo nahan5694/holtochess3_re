@@ -48,12 +48,15 @@ export function applyIssuesToBattle({ teamA, teamB, issueIds = [], GameData = {}
 
   for (const [id, count] of Object.entries(counts)) {
     switch (id) {
+      // 레벨
       case 'Issue_001': enemyLevelDelta += 5 * count; break;
       case 'Issue_002': enemyLevelDelta += 10 * count; break;
       case 'Issue_003': enemyLevelDelta += 15 * count; break;
       case 'Issue_004': enemyLevelDelta += 20 * count; break;
       case 'Issue_005': enemyLevelDelta += 25 * count; break;
       case 'Issue_006': enemyLevelDelta += 30 * count; break;
+
+      // 브레이크 / 속도 / 개화
       case 'Issue_007': enemyBpDelta += 1 * count; break;
       case 'Issue_008': enemySpeedDelta += 2 * count; break;
       case 'Issue_009': enemySpeedDelta += 4 * count; break;
@@ -62,9 +65,13 @@ export function applyIssuesToBattle({ teamA, teamB, issueIds = [], GameData = {}
       case 'Issue_011': enemyBloomDelta = Math.max(enemyBloomDelta, 2); break;
       case 'Issue_012': enemyBloomDelta = Math.max(enemyBloomDelta, 5); break;
       case 'Issue_044': enemyBloomDelta += 2 * count; break;
+
+      // 저주 카드 (강행군)
       case 'Issue_013': fatigueCardsCount += 2 * count; break;
       case 'Issue_014': fatigueCardsCount += 4 * count; break;
       case 'Issue_015': fatigueCardsCount += 6 * count; break;
+
+      // 주는 피해 / 받는 피해
       case 'Issue_016': enemyDmgDealtPct += 10 * count; break;
       case 'Issue_017': enemyDmgDealtPct += 20 * count; break;
       case 'Issue_018': enemyDmgDealtPct += 30 * count; break;
@@ -73,18 +80,26 @@ export function applyIssuesToBattle({ teamA, teamB, issueIds = [], GameData = {}
       case 'Issue_020': enemyDmgTakenPct -= 20 * count; break;
       case 'Issue_021': enemyDmgTakenPct -= 30 * count; break;
       case 'Issue_046': enemyDmgTakenPct -= 15 * count; break;
-      case 'Issue_022': enemyHpPct += 10 * count; break;
-      case 'Issue_023': enemyHpPct += 20 * count; break;
-      case 'Issue_024': enemyHpPct += 30 * count; break;
-      case 'Issue_047': enemyHpPct += 15 * count; break;
-      case 'Issue_025': enemyDefDelta += 15 * count; break;
-      case 'Issue_026': enemyDefDelta += 30 * count; break;
-      case 'Issue_048': enemyDefDelta += 20 * count; break;
-      case 'Issue_027': enemyMdefDelta += 15 * count; break;
-      case 'Issue_028': enemyMdefDelta += 30 * count; break;
-      case 'Issue_049': enemyMdefDelta += 20 * count; break;
-      case 'Issue_029': enemyEvasionDelta += 5 * count; break;
-      case 'Issue_030': enemyEvasionDelta += 10 * count; break;
+
+      // 방어력 (튼튼함 / 또렷함) - CSV 기준 정상 매핑
+      case 'Issue_022': enemyDefDelta += 5 * count; enemyMdefDelta += 5 * count; break;
+      case 'Issue_023': enemyDefDelta += 10 * count; enemyMdefDelta += 10 * count; break;
+      case 'Issue_024': enemyDefDelta += 15 * count; enemyMdefDelta += 15 * count; break;
+      case 'Issue_047': enemyDefDelta += 15 * count; break;  // 라이브 물리방어 +15
+      case 'Issue_048': enemyMdefDelta += 15 * count; break; // 라이브 마법방어 +15
+
+      // 체력 % (건강함) - CSV 기준 정상 매핑
+      case 'Issue_025': enemyHpPct += 10 * count; break;
+      case 'Issue_026': enemyHpPct += 20 * count; break;
+      case 'Issue_027': enemyHpPct += 30 * count; break;
+      case 'Issue_028': enemyHpPct += 40 * count; break;
+      case 'Issue_029': enemyHpPct += 50 * count; break;
+      case 'Issue_049': enemyHpPct += 25 * count; break; // 라이브 체력 +25%
+
+      // 회피 (댄스레슨) - CSV 기준 7% 정상 매핑
+      case 'Issue_030': enemyEvasionDelta += 7 * count; break;
+
+      // 공격력 / 아이돌력 %
       case 'Issue_031': enemyAtkPct += 10 * count; break;
       case 'Issue_032': enemyAtkPct += 20 * count; break;
       case 'Issue_033': enemyAtkPct += 30 * count; break;
@@ -93,12 +108,15 @@ export function applyIssuesToBattle({ teamA, teamB, issueIds = [], GameData = {}
       case 'Issue_035': enemyIdolPct += 20 * count; break;
       case 'Issue_036': enemyIdolPct += 30 * count; break;
       case 'Issue_051': enemyIdolPct += 15 * count; break;
+
+      // 시작 버프 및 보호막
       case 'Issue_037': startBuffs.push({ keywordId: 'Key_013', name: '열정', icon: '⚔️', rawKeyword: { Keyword_ID: 'Key_013', Keyword_Name: '열정', Keyword_Icon: '⚔️', Keyword_Type: '버프' }, stack: 1, duration: 5 }); break;
       case 'Issue_038': startBuffs.push({ keywordId: 'Key_014', name: '청초', icon: '⚜️', rawKeyword: { Keyword_ID: 'Key_014', Keyword_Name: '청초', Keyword_Icon: '⚜️', Keyword_Type: '버프' }, stack: 1, duration: 5 }); break;
       case 'Issue_039': startBuffs.push({ keywordId: 'Key_015', name: '견고', icon: '🛡️', rawKeyword: { Keyword_ID: 'Key_015', Keyword_Name: '견고', Keyword_Icon: '🛡️', Keyword_Type: '버프' }, stack: 1, duration: 5 }); break;
       case 'Issue_040': startBuffs.push({ keywordId: 'Key_016', name: '의지', icon: '⛓️', rawKeyword: { Keyword_ID: 'Key_016', Keyword_Name: '의지', Keyword_Icon: '⛓️', Keyword_Type: '버프' }, stack: 1, duration: 5 }); break;
       case 'Issue_041': idolShieldMultiplier += 1.0 * count; break;
-      case 'Issue_042': break; // Issue_042 (맹목)은 ui_live.js의 라이브 카드 선택 미리보기에서 처리됨
+      case 'Issue_042': break; // 맹목 (미리보기 처리)
+      case 'Issue_052': break; // 족쇄 (UI 덱 편성 처리)
     }
   }
 
