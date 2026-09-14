@@ -449,9 +449,11 @@ export function startGlobalTimeSystem() {
   window.startGlobalTimeSystem = startGlobalTimeSystem;
 
   if (!globalTimerId) {
-    // [중요] GameData와 characters 데이터가 로딩될 때까지 100ms 대기 (오프라인 정산 에러 방지)
-    const isDataReady = window.GameData && Array.isArray(window.GameData.characters) && window.GameData.characters.length > 0;
-    if (!isDataReady) {
+    // [핵심] GameData 및 세이브 데이터(PlayerData)가 모두 준비될 때까지 100ms 대기
+    const isGameDataReady = window.GameData && Array.isArray(window.GameData.characters) && window.GameData.characters.length > 0;
+    const isSaveDataReady = window.PlayerData && window.PlayerData.items !== undefined;
+
+    if (!isGameDataReady || !isSaveDataReady) {
       setTimeout(startGlobalTimeSystem, 100);
       return;
     }
@@ -470,7 +472,7 @@ export function startGlobalTimeSystem() {
       globalTime = PlayerData.globalTime;
     }
 
-    // 캐릭터 데이터가 완벽히 준비된 상태에서 안전하게 60초 분할 정산 실행
+    // 캐릭터와 세이브 배치가 완벽히 불려온 상태에서 안전하게 60초 분할 정산 실행
     if (lastSavedTick > 0) {
       const offlineSeconds = Math.floor((now - lastSavedTick) / 1000);
       if (offlineSeconds > 0) {
