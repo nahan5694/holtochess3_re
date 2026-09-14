@@ -452,10 +452,20 @@ export function startGlobalTimeSystem() {
     }
 
     globalTimerId = setInterval(runGlobalTimeSystem, 1000);
+    window.globalTimerId = globalTimerId; // [추가] 외부 및 디버그 확인용 전역 등록
   }
 }
 window.startGlobalTimeSystem = startGlobalTimeSystem;
 window.runGlobalTimeSystem = runGlobalTimeSystem;
+
+// [추가] 게임 시작 시 메인 타이머 자동 구동 (스튜디오/사무소 엔진 가동 보장)
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    if (!window.globalTimerId && typeof startGlobalTimeSystem === 'function') {
+      startGlobalTimeSystem();
+    }
+  }, 300);
+}
 
 // 1. 최소화/다른 탭에서 돌아왔을 때 즉시 정산 (백그라운드 프리징 대응)
 if (typeof document !== 'undefined' && !window._globalTimeVisibilityBound) {
