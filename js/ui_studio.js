@@ -434,7 +434,7 @@ function updateProgress() {
     let currentAmt = PlayerData.studio.donations?.[type.item] || 0;
     let limit = 100;
     if (type.item === 'Item_002') limit = 500000;
-    else if (type.item === 'Item_008') limit = 500;
+    else if (type.item === 'Item_008') limit = 1000;
     
     if (currentAmt >= limit) {
        fill.style.width = '100%';
