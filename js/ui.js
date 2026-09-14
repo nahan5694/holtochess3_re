@@ -376,6 +376,16 @@ function processTimeProgress(elapsedSeconds) {
     PlayerData.lastGlobalTimeTick = Date.now();
     PlayerData.globalTime = globalTime;
   }
+
+  // ========================================================
+  // [추가] 스튜디오 및 사무소 실시간 / 백그라운드 일괄 생산 틱 호출
+  // ========================================================
+  if (typeof window.tickStudio === 'function') {
+    try { window.tickStudio(elapsedSeconds); } catch (e) { console.error("tickStudio error:", e); }
+  }
+  if (typeof window.tickOffice === 'function') {
+    try { window.tickOffice(elapsedSeconds); } catch (e) { console.error("tickOffice error:", e); }
+  }
 }
 
 function runGlobalTimeSystem() {
