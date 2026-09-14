@@ -1,4 +1,4 @@
-import { PlayerData } from './state.js?v=004276';
+import { GameData, PlayerData } from './state.js?v=004276';
 
 window.getCharOfficeStat = function(charId, deptId) {
   const char = (GameData.characters.find(c => c.Character_ID === charId));
