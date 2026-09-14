@@ -76,27 +76,8 @@ window.initOfficeUI = function() {
     }
   });
   
-  // Setup tick for office
-  try {
-    const now = Date.now();
-    let dt = 0;
-    if (PlayerData.lastOfficeUpdate) {
-      dt = (now - PlayerData.lastOfficeUpdate) / 1000;
-      tickOffice(dt);
-    }
-    PlayerData.lastOfficeUpdate = now;
-    
-    if (!window._officeIntervalStarted) {
-      window._officeIntervalStarted = true;
-      setInterval(() => {
-        try {
-          tickOffice(1);
-        } catch (e) {
-          console.error("tickOffice interval error:", e);
-        }
-      }, 1000);
-    }
-  } catch(e) { console.error(e); }
+  // 글로벌 타이머(ui.js)에서 일괄 구동하므로 개별 타이머는 실행하지 않습니다.
+  PlayerData.lastOfficeUpdate = Date.now();
 
   updateOfficeUI();
 }
@@ -1134,6 +1115,7 @@ window.tickOffice = function(dtSeconds) {
     }
     lastOfficeTickUpdate = now;
   }
+  PlayerData.lastOfficeUpdate = Date.now();
 }
 
 window.updateOfficeProgressUI = function() {
