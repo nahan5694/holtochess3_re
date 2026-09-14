@@ -326,30 +326,73 @@ export function changeSceneWipe(fromScene, toScene) {
 // =========================================
 // Time System
 // =========================================
-function runGlobalTimeSystem() {
-  try {
-    globalTime--;
-    if (globalTime < 0) {
-      globalTime = 300;
-      if (PlayerData.pendingLiveTickets === undefined) {
-        PlayerData.pendingLiveTickets = 0;
-      }
-      if (PlayerData.pendingLiveTickets < 30) {
-        PlayerData.pendingLiveTickets++;
-      }
-      let maxAP = 120;
-      if (window.GameData && window.GameData.levels && window.PlayerData) {
-        const lvlData = window.GameData.levels.find(l => parseInt((l.Account_Level || l.Level || l['레벨'] || 1)) === (window.PlayerData.level || 1));
-        if (lvlData && lvlData.Account_Max_AP) {
-          maxAP = parseInt(lvlData.Account_Max_AP);
-        }
-      }
-      if (PlayerData.ap === undefined) PlayerData.ap = maxAP;
-      if (PlayerData.ap < maxAP) {
-        PlayerData.ap++;
-        updateAPUI();
+
+let lastGlobalTimeTick = Date.now();
+
+// 경과 시간(초)에 따른 AP 및 티켓 일괄 계산 함수
+function processTimeProgress(elapsedSeconds) {
+  if (elapsedSeconds <= 0) return;
+
+  const totalRemaining = globalTime - elapsedSeconds;
+
+  if (totalRemaining <= 0) {
+    // 300초 사이클 도달 횟수 계산
+    const over = -totalRemaining;
+    const triggers = 1 + Math.floor(over / 300);
+    const rem = 300 - (over % 300);
+    globalTime = rem === 0 ? 300 : rem;
+
+    // 1. 라이브 티켓 지급 (최대 30장)
+    if (PlayerData.pendingLiveTickets === undefined) {
+      PlayerData.pendingLiveTickets = 0;
+    }
+    if (PlayerData.pendingLiveTickets < 30) {
+      PlayerData.pendingLiveTickets = Math.min(30, PlayerData.pendingLiveTickets + triggers);
+    }
+
+    // 2. 최대 AP 계산
+    let maxAP = 120;
+    if (window.GameData && window.GameData.levels && window.PlayerData) {
+      const lvlData = window.GameData.levels.find(l => parseInt((l.Account_Level || l.Level || l['레벨'] || 1)) === (window.PlayerData.level || 1));
+      if (lvlData && lvlData.Account_Max_AP) {
+        maxAP = parseInt(lvlData.Account_Max_AP);
       }
     }
+
+    // 3. AP 지급 (경과한 사이클만큼 일괄 회복)
+    if (PlayerData.ap === undefined) PlayerData.ap = maxAP;
+    if (PlayerData.ap < maxAP) {
+      PlayerData.ap = Math.min(maxAP, PlayerData.ap + triggers);
+      updateAPUI();
+    }
+
+    if (window.savePlayerData) window.savePlayerData();
+  } else {
+    globalTime = totalRemaining;
+  }
+
+  // PlayerData 객체에 현재 시각과 타이머 상태 동기화 (종료 대비)
+  if (window.PlayerData) {
+    PlayerData.lastGlobalTimeTick = Date.now();
+    PlayerData.globalTime = globalTime;
+  }
+}
+
+function runGlobalTimeSystem() {
+  try {
+    const now = Date.now();
+    const elapsedSeconds = Math.floor((now - lastGlobalTimeTick) / 1000);
+
+    // 1초 미만 호출이면 대기
+    if (elapsedSeconds <= 0) return;
+
+    // 밀리초 오차 보정
+    lastGlobalTimeTick += elapsedSeconds * 1000;
+
+    // 경과 시간 정산
+    processTimeProgress(elapsedSeconds);
+
+    // UI 게이지 및 텍스트 갱신
     const timeText = document.getElementById("time-text");
     const gaugeFill = document.getElementById("time-gauge-fill");
     if (timeText && gaugeFill) {
@@ -357,7 +400,7 @@ function runGlobalTimeSystem() {
       const progressPercent = ((300 - globalTime) / 300) * 100;
       gaugeFill.style.width = progressPercent + "%";
     }
-    
+
     // Audition slots logic
     updateAuditionTimers();
     updateMainMenuNotificationDots();
@@ -368,18 +411,63 @@ function runGlobalTimeSystem() {
 
 export function startGlobalTimeSystem() {
   window.startGlobalTimeSystem = startGlobalTimeSystem;
+
   if (!globalTimerId) {
+    const now = Date.now();
+
+    // 1. 게임 종료 상태(오프라인) 동안 경과한 시간 일괄 정산
+    if (window.PlayerData && PlayerData.lastGlobalTimeTick) {
+      const offlineSeconds = Math.floor((now - PlayerData.lastGlobalTimeTick) / 1000);
+      if (PlayerData.globalTime !== undefined) {
+        globalTime = PlayerData.globalTime;
+      }
+      if (offlineSeconds > 0) {
+        processTimeProgress(offlineSeconds);
+      }
+    }
+
+    // 시작 시점 타임스탬프 갱신
+    lastGlobalTimeTick = now;
+    if (window.PlayerData) {
+      PlayerData.lastGlobalTimeTick = now;
+      PlayerData.globalTime = globalTime;
+    }
+
     const timeText = document.getElementById("time-text");
     const gaugeFill = document.getElementById("time-gauge-fill");
     if (timeText && gaugeFill) {
       timeText.textContent = globalTime + "s";
-      gaugeFill.style.width = "0%";
+      const progressPercent = ((300 - globalTime) / 300) * 100;
+      gaugeFill.style.width = progressPercent + "%";
     }
+
     globalTimerId = setInterval(runGlobalTimeSystem, 1000);
   }
 }
 window.startGlobalTimeSystem = startGlobalTimeSystem;
 window.runGlobalTimeSystem = runGlobalTimeSystem;
+
+// 1. 최소화/다른 탭에서 돌아왔을 때 즉시 정산 (백그라운드 프리징 대응)
+if (typeof document !== 'undefined' && !window._globalTimeVisibilityBound) {
+  window._globalTimeVisibilityBound = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      runGlobalTimeSystem();
+    }
+  });
+}
+
+// 2. 브라우저 창/탭을 완전히 닫을 때 현재 시각 저장 (오프라인 회복 보장)
+if (typeof window !== 'undefined' && !window._globalTimeUnloadBound) {
+  window._globalTimeUnloadBound = true;
+  window.addEventListener('beforeunload', () => {
+    if (window.PlayerData) {
+      PlayerData.lastGlobalTimeTick = Date.now();
+      PlayerData.globalTime = globalTime;
+      if (window.savePlayerData) window.savePlayerData();
+    }
+  });
+}
 
 // =========================================
 // 메인 메뉴 4종 알림 레드닷 시스템 (Item 4) & 기능 해금
