@@ -171,17 +171,14 @@ function buildStageCardHTML(stage, isLocked = false) {
             if (!item) continue;
             
             let displayStr = '';
-            if (baseAmount > 1) {
-                const bonus = Math.floor(baseAmount * (totalPoints * 0.03));
-                if (bonus > 0) displayStr = `+${bonus}`;
-            } else {
-                const prob = totalPoints * 0.04;
-                const guaranteed = Math.floor(prob);
-                const chance = Math.round((prob % 1) * 100);
-                if (guaranteed > 0 && chance > 0) displayStr = `+${guaranteed} (추가 ${chance}% 확률로 +1)`;
-                else if (guaranteed > 0) displayStr = `+${guaranteed}`;
-                else if (chance > 0) displayStr = `${chance}% 확률로 +1`;
-            }
+            const ratePerPoint = (baseAmount > 1) ? 0.03 : 0.04;
+            const totalBonus = baseAmount * (totalPoints * ratePerPoint);
+            const guaranteed = Math.floor(totalBonus);
+            const chance = Math.round((totalBonus % 1) * 100);
+
+            if (guaranteed > 0 && chance > 0) displayStr = `+${guaranteed} (추가 ${chance}% 확률로 +1)`;
+            else if (guaranteed > 0) displayStr = `+${guaranteed}`;
+            else if (chance > 0) displayStr = `${chance}% 확률로 +1`;
             
             if (displayStr !== '') {
                 html += `<div style="display:flex; align-items:center; gap:5px; background: rgba(255,234,234,0.7); padding:8px 15px; border-radius:10px; font-size:1.1rem; border:2px solid #e74c3c; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
