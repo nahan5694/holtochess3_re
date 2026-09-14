@@ -737,9 +737,15 @@ function tickStudio(dtSeconds) {
   });
   
   PlayerData.lastStudioUpdate = Date.now();
-  refreshStudioUI();
-  updateProgress();
+
+  // 스튜디오 씬(scene-10)을 보고 있을 때만 UI 새로고침 (백그라운드 성능 최적화)
+  const isStudioOpen = document.getElementById('scene-10')?.classList.contains('active');
+  if (isStudioOpen) {
+    refreshStudioUI();
+    updateProgress();
+  }
 }
+window.tickStudio = tickStudio; // 메인 글로벌 타이머가 호출할 수 있도록 등록
 
 
 window.initStudioUI = function() {
@@ -797,24 +803,8 @@ window.initStudioUI = function() {
     });
   }
   
-  const now = Date.now();
-  const last = PlayerData.lastStudioUpdate || now;
-  const dt = (now - last) / 1000;
-  if (dt > 10) {
-    tickStudio(dt);
-  }
-  PlayerData.lastStudioUpdate = now;
-  
-  if (!window._studioIntervalStarted) {
-    window._studioIntervalStarted = true;
-    setInterval(() => {
-      try {
-        tickStudio(1);
-      } catch (e) {
-        console.error("tickStudio interval error:", e);
-      }
-    }, 1000);
-  }
+  // 글로벌 타이머에서 일괄 처리하므로 개별 타이머는 실행하지 않습니다.
+  PlayerData.lastStudioUpdate = Date.now();
   } catch (e) { document.getElementById("init-status-text").innerHTML += "<br><span style=\"color:red;\">initStudioUI Error: " + e.stack + "</span>"; console.error(e); }
 }
 
