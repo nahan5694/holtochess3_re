@@ -3777,23 +3777,15 @@ function handleBattleExit() {
 
             let bonusCount = 0;
 
-            // Bulk rewards (e.g. Credits):
-            // Issue Point 1P = +3% of the base reward
-            if (baseAmount > 1) {
-              bonusCount = Math.floor(baseAmount * (totalPts * 0.03));
-            }
-            // Single-item rewards (e.g. rare materials):
-            // Issue Point 1P = +4% chance to obtain +1
-            else {
-              const bonusChance = totalPts * 0.04;
-              const guaranteedBonus = Math.floor(bonusChance);
-              const randomChance = bonusChance % 1;
+            const ratePerPoint = (baseAmount > 1) ? 0.03 : 0.04;
+            const bonusChance = baseAmount * (totalPts * ratePerPoint);
+            const guaranteedBonus = Math.floor(bonusChance);
+            const randomChance = bonusChance % 1;
 
-              bonusCount += guaranteedBonus;
+            bonusCount += guaranteedBonus;
 
-              if (Math.random() < randomChance) {
-                bonusCount += 1;
-              }
+            if (Math.random() < randomChance) {
+              bonusCount += 1;
             }
 
             // Grant bonus reward
