@@ -3951,10 +3951,10 @@ function buildPlayerBattleCharacter(char, charStats = {}, formationPosition = 1)
   let hp = (parseInt(char.Character_HP, 10) || 0) + (levelDiff * hpUp);
   let atk = (parseInt(char.Character_ATK, 10) || 0) + (levelDiff * atkUp);
   let idol = (parseInt(char.Character_Idol, 10) || 0) + (levelDiff * idolUp);
-  let bp = parseInt(char.Character_BP, 10) || 5;
+  let bp = parseInt(char.Character_BP, 10) || 3;
   let aggro = parseInt(char.Character_Aggro, 10) || 5;
-  let def = parseInt(char.Character_DEF || char.Character_Physical_DEF, 10) || 20;
-  let mdef = parseInt(char.Character_MDEF || char.Character_Magical_DEF, 10) || 20;
+  let def = parseInt(char.Character_DEF || char.Character_Physical_DEF, 10) || 0;
+  let mdef = parseInt(char.Character_MDEF || char.Character_Magical_DEF, 10) || 0;
   let reg = parseInt(char.Character_REG, 10) || 0;
   let hitrate = parseInt(char.Character_HitRate, 10) || 100;
   let dodge = parseInt(char.Character_Dodge, 10) || 5;
