@@ -1655,7 +1655,7 @@ export function showUnitStatPopover(c, tab, anchorEl, cardEl) {
   const effectiveIdol = Math.max(0, Math.round(c.idolPower * (1 + (mods.idolPercent || 0) / 100)));
   const effectiveDef = Math.max(0, c.def + (mods.defDelta || 0));
   const effectiveMdef = Math.max(0, c.mdef + (mods.mdefDelta || 0));
-  const effectiveAcc = Math.max(0, Math.min(100, c.accuracy + (mods.accuracyBonus || 0)));
+  const effectiveAcc = Math.max(0, c.accuracy + (mods.accuracyBonus || 0));
   const effectiveEva = Math.max(0, Math.min(100, c.evasion + (mods.evasionBonus || 0)));
   const effectiveCrit = Math.max(0, Math.min(100, c.critChance + (mods.critBonus || 0)));
   const effectiveCritDmg = (c.critDmg || 1.5) + (mods.critDmgBonus || 0);
