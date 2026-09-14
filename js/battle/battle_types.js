@@ -120,33 +120,43 @@ export function createCharacterBattleState(raw = {}, teamId = 'TEAM_A', formatio
   const idolUp = parseInt(raw.Character_Idol_UP || raw.Character_Idol_Up || 1, 10);
   const hpUp = parseInt(raw.Character_HP_UP || raw.Character_HP_Up || 1, 10);
 
+  // 1순위: 코어/키즈나가 합산된 options 스탯이 있으면 그대로 사용
+  // 2순위: options가 없으면 기존 방식대로 기본값 + 레벨 성장치로 계산
   let maxHp;
-  if (raw.Character_HP !== undefined) {
+  if (options.maxHp !== undefined || options.hp !== undefined) {
+    maxHp = Math.max(1, Number(options.maxHp ?? options.hp));
+  } else if (raw.Character_HP !== undefined) {
     maxHp = Math.max(1, Number(raw.Character_HP) + (levelDiff * hpUp));
   } else {
-    maxHp = Math.max(1, Number(raw.maxHp ?? raw.hp ?? options.maxHp ?? options.hp ?? 1000));
+    maxHp = Math.max(1, Number(raw.maxHp ?? raw.hp ?? 1000));
   }
 
   let atk;
-  if (raw.Character_ATK !== undefined) {
+  if (options.atk !== undefined) {
+    atk = Math.max(0, Number(options.atk));
+  } else if (raw.Character_ATK !== undefined) {
     atk = Math.max(0, Number(raw.Character_ATK) + (levelDiff * atkUp));
   } else {
-    atk = Math.max(0, Number(raw.atk ?? options.atk ?? 100));
+    atk = Math.max(0, Number(raw.atk ?? 100));
   }
 
   let idolPower;
-  if (raw.Character_Idol !== undefined) {
+  if (options.idolPower !== undefined) {
+    idolPower = Math.max(0, Number(options.idolPower));
+  } else if (raw.Character_Idol !== undefined) {
     idolPower = Math.max(0, Number(raw.Character_Idol) + (levelDiff * idolUp));
   } else {
-    idolPower = Math.max(0, Number(raw.idolPower ?? options.idolPower ?? 100));
+    idolPower = Math.max(0, Number(raw.idolPower ?? 100));
   }
-  let def = Math.max(0, Number(raw.Character_DEF ?? raw.Character_Physical_DEF ?? raw.def ?? options.def ?? 20));
-  let mdef = Math.max(0, Number(raw.Character_MDEF ?? raw.Character_Magical_DEF ?? raw.mdef ?? options.mdef ?? 20));
-  let speed = Math.max(1, Number(raw.Character_Spd ?? raw.speed ?? options.speed ?? 10));
-  let critChance = Math.min(100, Math.max(0, Number(raw.Character_Crit ?? raw.critChance ?? options.critChance ?? 5)));
-  let accuracy = Math.max(0, Number(raw.Character_HitRate ?? raw.accuracy ?? options.accuracy ?? 100));
-  let evasion = Math.max(0, Number(raw.Character_Dodge ?? raw.evasion ?? options.evasion ?? 5));
-  let reg = Math.max(0, Number(raw.Character_REG ?? raw.Character_Resist ?? raw.resistance ?? raw.reg ?? options.reg ?? options.resistance ?? 0));
+
+  // 방어/속도/치명타 등 나머지 스탯도 options를 최우선(1순위)으로 배치
+  let def = Math.max(0, Number(options.def ?? raw.Character_DEF ?? raw.Character_Physical_DEF ?? raw.def ?? 20));
+  let mdef = Math.max(0, Number(options.mdef ?? raw.Character_MDEF ?? raw.Character_Magical_DEF ?? raw.mdef ?? 20));
+  let speed = Math.max(1, Number(options.speed ?? raw.Character_Spd ?? raw.speed ?? 10));
+  let critChance = Math.min(100, Math.max(0, Number(options.critChance ?? raw.Character_Crit ?? raw.critChance ?? 5)));
+  let accuracy = Math.max(0, Number(options.accuracy ?? raw.Character_HitRate ?? raw.accuracy ?? 100));
+  let evasion = Math.max(0, Number(options.evasion ?? raw.Character_Dodge ?? raw.evasion ?? 5));
+  let reg = Math.max(0, Number(options.reg ?? options.resistance ?? raw.Character_REG ?? raw.Character_Resist ?? raw.resistance ?? raw.reg ?? 0));
 
   // Star 1 unlocks P1, Star 3 unlocks P2
   const activePassives = [];
