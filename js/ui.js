@@ -449,6 +449,13 @@ export function startGlobalTimeSystem() {
   window.startGlobalTimeSystem = startGlobalTimeSystem;
 
   if (!globalTimerId) {
+    // [중요] GameData와 characters 데이터가 로딩될 때까지 100ms 대기 (오프라인 정산 에러 방지)
+    const isDataReady = window.GameData && Array.isArray(window.GameData.characters) && window.GameData.characters.length > 0;
+    if (!isDataReady) {
+      setTimeout(startGlobalTimeSystem, 100);
+      return;
+    }
+
     const now = Date.now();
 
     // 로컬스토리지 백업 시각과 PlayerData 시각 중 더 최근 값을 찾아 오프라인 경과 시간 계산
@@ -463,6 +470,7 @@ export function startGlobalTimeSystem() {
       globalTime = PlayerData.globalTime;
     }
 
+    // 캐릭터 데이터가 완벽히 준비된 상태에서 안전하게 60초 분할 정산 실행
     if (lastSavedTick > 0) {
       const offlineSeconds = Math.floor((now - lastSavedTick) / 1000);
       if (offlineSeconds > 0) {
@@ -496,13 +504,9 @@ export function startGlobalTimeSystem() {
 window.startGlobalTimeSystem = startGlobalTimeSystem;
 window.runGlobalTimeSystem = runGlobalTimeSystem;
 
-// 게임 로딩 완료 후 글로벌 타이머 자동 구동 보장
+// 게임 시작 시 타이머 구동 요청 (내부의 isDataReady 대기 루프가 안전하게 대기함)
 if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    if (!window.globalTimerId && typeof startGlobalTimeSystem === 'function') {
-      startGlobalTimeSystem();
-    }
-  }, 300);
+  startGlobalTimeSystem();
 }
 
 // 1. 최소화/다른 탭에서 돌아왔을 때 즉시 정산 (백그라운드 프리징 대응)
