@@ -1434,7 +1434,24 @@ window.openHelpModal = openHelpModal;
       if (typeof window.savePlayerData === 'function') {
         window.savePlayerData();
       }
-      } else if (code === "0782") {
+
+    } else if (code === "8282") {
+      // [8282] 코드: Item_001 1200개 지급 (무제한 중복 수령 가능)
+      if (!PlayerData.items) PlayerData.items = {};
+      PlayerData.items['Item_001'] = (PlayerData.items['Item_001'] || 0) + 1200;
+
+      inputDevCode.value = "";
+      alert("🎁 개발자 코드(8282) 보상이 지급되었습니다! (Item_001 +1200)");
+
+      updateTopCurrencies();
+      if (typeof window.renderWarehouseItems === 'function') {
+        window.renderWarehouseItems();
+      }
+      if (typeof window.savePlayerData === 'function') {
+        window.savePlayerData();
+      }
+
+    } else if (code === "0782") {
         if (!PlayerData.items) PlayerData.items = {};
         const devRewards = {
           'Item_001': 100000,
