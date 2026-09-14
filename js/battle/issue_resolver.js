@@ -192,14 +192,8 @@ export function applyIssuesToBattle({ teamA, teamB, issueIds = [], GameData = {}
   }
 
   // 2. Apply to Player Team (Team A)
+  // 덱 조작은 initBattle 이후 ui_battle.js에서 일괄 처리하므로 카운트만 전달
   if (teamA) {
     teamA.fatigueCardsCount = fatigueCardsCount;
-    if (fatigueCardsCount > 0) {
-      teamA.deck = teamA.deck || [];
-      for (let i = 0; i < fatigueCardsCount; i++) {
-        teamA.deck.push(createFatigueCard());
-      }
-      teamA.deck.sort(() => Math.random() - 0.5);
-    }
   }
 }
