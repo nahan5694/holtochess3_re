@@ -324,25 +324,24 @@ export function changeSceneWipe(fromScene, toScene) {
 }
 
 // =========================================
-// Time System
+// Time System (오프라인 60초 분할 시뮬레이션 & 로컬스토리지 백업)
 // =========================================
 
 let lastGlobalTimeTick = Date.now();
 
-// 경과 시간(초)에 따른 AP 및 티켓 일괄 계산 함수
-function processTimeProgress(elapsedSeconds) {
+// 1. 순수 AP & 티켓 계산 함수 (수식으로 즉시 일괄 정산)
+function processApAndTickets(elapsedSeconds) {
   if (elapsedSeconds <= 0) return;
 
   const totalRemaining = globalTime - elapsedSeconds;
 
   if (totalRemaining <= 0) {
-    // 300초 사이클 도달 횟수 계산
     const over = -totalRemaining;
     const triggers = 1 + Math.floor(over / 300);
     const rem = 300 - (over % 300);
     globalTime = rem === 0 ? 300 : rem;
 
-    // 1. 라이브 티켓 지급 (최대 30장)
+    // 라이브 티켓 지급 (최대 30장)
     if (PlayerData.pendingLiveTickets === undefined) {
       PlayerData.pendingLiveTickets = 0;
     }
@@ -350,7 +349,7 @@ function processTimeProgress(elapsedSeconds) {
       PlayerData.pendingLiveTickets = Math.min(30, PlayerData.pendingLiveTickets + triggers);
     }
 
-    // 2. 최대 AP 계산
+    // 최대 AP 계산
     let maxAP = 120;
     if (window.GameData && window.GameData.levels && window.PlayerData) {
       const lvlData = window.GameData.levels.find(l => parseInt((l.Account_Level || l.Level || l['레벨'] || 1)) === (window.PlayerData.level || 1));
@@ -359,7 +358,7 @@ function processTimeProgress(elapsedSeconds) {
       }
     }
 
-    // 3. AP 지급 (경과한 사이클만큼 일괄 회복)
+    // AP 지급
     if (PlayerData.ap === undefined) PlayerData.ap = maxAP;
     if (PlayerData.ap < maxAP) {
       PlayerData.ap = Math.min(maxAP, PlayerData.ap + triggers);
@@ -370,21 +369,50 @@ function processTimeProgress(elapsedSeconds) {
   } else {
     globalTime = totalRemaining;
   }
+}
 
-  // PlayerData 객체에 현재 시각과 타이머 상태 동기화 (종료 대비)
+// 2. 경과 시간 시뮬레이션 (캐릭터 교대/피로도를 위해 60초 단위로 쪼개서 실행)
+function processTimeProgress(totalSeconds) {
+  if (totalSeconds <= 0) return;
+
+  // AP 및 티켓은 수식으로 즉시 일괄 정산
+  processApAndTickets(totalSeconds);
+
+  // 스튜디오 & 사무소: 10초 미만은 그냥 1회 실행, 10초 이상 방치/오프라인은 60초 단위로 루프 분할
+  // (최대 24시간 = 86,400초 상한선 적용)
+  const cappedSeconds = Math.min(86400, totalSeconds);
+
+  if (cappedSeconds < 10) {
+    if (typeof window.tickStudio === 'function') {
+      try { window.tickStudio(cappedSeconds); } catch (e) { console.error("tickStudio error:", e); }
+    }
+    if (typeof window.tickOffice === 'function') {
+      try { window.tickOffice(cappedSeconds); } catch (e) { console.error("tickOffice error:", e); }
+    }
+  } else {
+    const step = 60; // 60초 단위로 시뮬레이션 (피로도 소모 -> 자동 교대 -> 회복 사이클 보장)
+    const loops = Math.floor(cappedSeconds / step);
+    const remainder = cappedSeconds % step;
+
+    for (let i = 0; i < loops; i++) {
+      if (typeof window.tickStudio === 'function') window.tickStudio(step);
+      if (typeof window.tickOffice === 'function') window.tickOffice(step);
+    }
+    if (remainder > 0) {
+      if (typeof window.tickStudio === 'function') window.tickStudio(remainder);
+      if (typeof window.tickOffice === 'function') window.tickOffice(remainder);
+    }
+  }
+
+  // 로컬스토리지 및 PlayerData에 실시간 기록
+  try {
+    localStorage.setItem('HOLTO_LAST_OFFLINE_TICK', String(Date.now()));
+    localStorage.setItem('HOLTO_LAST_GLOBAL_TIME', String(globalTime));
+  } catch (e) {}
+
   if (window.PlayerData) {
     PlayerData.lastGlobalTimeTick = Date.now();
     PlayerData.globalTime = globalTime;
-  }
-
-  // ========================================================
-  // [추가] 스튜디오 및 사무소 실시간 / 백그라운드 일괄 생산 틱 호출
-  // ========================================================
-  if (typeof window.tickStudio === 'function') {
-    try { window.tickStudio(elapsedSeconds); } catch (e) { console.error("tickStudio error:", e); }
-  }
-  if (typeof window.tickOffice === 'function') {
-    try { window.tickOffice(elapsedSeconds); } catch (e) { console.error("tickOffice error:", e); }
   }
 }
 
@@ -393,13 +421,11 @@ function runGlobalTimeSystem() {
     const now = Date.now();
     const elapsedSeconds = Math.floor((now - lastGlobalTimeTick) / 1000);
 
-    // 1초 미만 호출이면 대기
     if (elapsedSeconds <= 0) return;
 
-    // 밀리초 오차 보정
     lastGlobalTimeTick += elapsedSeconds * 1000;
 
-    // 경과 시간 정산
+    // 경과 시간 정산 (60초 단위 시뮬레이션 연동)
     processTimeProgress(elapsedSeconds);
 
     // UI 게이지 및 텍스트 갱신
@@ -425,19 +451,31 @@ export function startGlobalTimeSystem() {
   if (!globalTimerId) {
     const now = Date.now();
 
-    // 1. 게임 종료 상태(오프라인) 동안 경과한 시간 일괄 정산
-    if (window.PlayerData && PlayerData.lastGlobalTimeTick) {
-      const offlineSeconds = Math.floor((now - PlayerData.lastGlobalTimeTick) / 1000);
-      if (PlayerData.globalTime !== undefined) {
-        globalTime = PlayerData.globalTime;
-      }
+    // 로컬스토리지 백업 시각과 PlayerData 시각 중 더 최근 값을 찾아 오프라인 경과 시간 계산
+    const rawLocalTick = parseInt(localStorage.getItem('HOLTO_LAST_OFFLINE_TICK') || '0', 10);
+    const playerTick = window.PlayerData?.lastGlobalTimeTick || 0;
+    const lastSavedTick = Math.max(rawLocalTick, playerTick);
+
+    const savedGlobalTime = parseInt(localStorage.getItem('HOLTO_LAST_GLOBAL_TIME') || '0', 10);
+    if (savedGlobalTime > 0 && savedGlobalTime <= 300) {
+      globalTime = savedGlobalTime;
+    } else if (window.PlayerData?.globalTime !== undefined) {
+      globalTime = PlayerData.globalTime;
+    }
+
+    if (lastSavedTick > 0) {
+      const offlineSeconds = Math.floor((now - lastSavedTick) / 1000);
       if (offlineSeconds > 0) {
         processTimeProgress(offlineSeconds);
       }
     }
 
-    // 시작 시점 타임스탬프 갱신
     lastGlobalTimeTick = now;
+    try {
+      localStorage.setItem('HOLTO_LAST_OFFLINE_TICK', String(now));
+      localStorage.setItem('HOLTO_LAST_GLOBAL_TIME', String(globalTime));
+    } catch (e) {}
+
     if (window.PlayerData) {
       PlayerData.lastGlobalTimeTick = now;
       PlayerData.globalTime = globalTime;
@@ -452,13 +490,13 @@ export function startGlobalTimeSystem() {
     }
 
     globalTimerId = setInterval(runGlobalTimeSystem, 1000);
-    window.globalTimerId = globalTimerId; // [추가] 외부 및 디버그 확인용 전역 등록
+    window.globalTimerId = globalTimerId;
   }
 }
 window.startGlobalTimeSystem = startGlobalTimeSystem;
 window.runGlobalTimeSystem = runGlobalTimeSystem;
 
-// [추가] 게임 시작 시 메인 타이머 자동 구동 (스튜디오/사무소 엔진 가동 보장)
+// 게임 로딩 완료 후 글로벌 타이머 자동 구동 보장
 if (typeof window !== 'undefined') {
   setTimeout(() => {
     if (!window.globalTimerId && typeof startGlobalTimeSystem === 'function') {
@@ -477,10 +515,14 @@ if (typeof document !== 'undefined' && !window._globalTimeVisibilityBound) {
   });
 }
 
-// 2. 브라우저 창/탭을 완전히 닫을 때 현재 시각 저장 (오프라인 회복 보장)
+// 2. 브라우저 창/탭을 완전히 닫을 때 안전 저장
 if (typeof window !== 'undefined' && !window._globalTimeUnloadBound) {
   window._globalTimeUnloadBound = true;
   window.addEventListener('beforeunload', () => {
+    try {
+      localStorage.setItem('HOLTO_LAST_OFFLINE_TICK', String(Date.now()));
+      localStorage.setItem('HOLTO_LAST_GLOBAL_TIME', String(globalTime));
+    } catch (e) {}
     if (window.PlayerData) {
       PlayerData.lastGlobalTimeTick = Date.now();
       PlayerData.globalTime = globalTime;
