@@ -1828,19 +1828,27 @@ function attachUnitCardInteractions() {
 
         const skillData = selectedHandCard.skillData || selectedHandCard.rawSkill || {};
         const desc = String(skillData.Skill_Desc || '');
-        const targetStr = String(skillData.Act1_Target || skillData.Skill_Target || '').trim();
+        const targetStr = String(
+          selectedHandCard.target || 
+          selectedHandCard.targetType || 
+          skillData.Skill_Target || 
+          skillData.Act1_Target || 
+          ''
+        ).trim();
+
         const isFlexibleBranch = desc.includes('대상에 따라') || String(skillData.Cond_Trigger || '').includes('BRANCH_BY_TARGET_TEAM');
-        const hasManualAlly = desc.includes('지정한 아군') || desc.includes('아군 타깃') || targetStr === '아군' || targetStr === '자신' || targetStr === '무작위_아군';
-        const hasManualEnemy = desc.includes('지정한 적') || desc.includes('적 타깃') || targetStr === '적' || targetStr === '무작위_적';
+        // '적' 수동 지정 조건을 먼저 검사하고, 카드의 공격 플래그를 함께 반영
+        const hasManualEnemy = desc.includes('지정한 적') || desc.includes('적 타깃') || targetStr === '적' || targetStr === '무작위_적' || Boolean(selectedHandCard.isOffensive);
+        const hasManualAlly = !hasManualEnemy && (desc.includes('지정한 아군') || desc.includes('아군 타깃') || targetStr === '아군' || targetStr === '자신' || targetStr === '무작위_아군');
         const isAllyTarget = (selectedHandCard.cardType === CardType.MEMORIAL) || targetStr.includes('아군') || targetStr.includes('자신') || targetStr === 'ALLY' || targetStr === 'SELF';
 
         let isTargetValid = false;
         if (isFlexibleBranch) {
           isTargetValid = true;
-        } else if (hasManualAlly) {
-          isTargetValid = (teamId === 'TEAM_A');
         } else if (hasManualEnemy) {
           isTargetValid = (teamId === 'TEAM_B');
+        } else if (hasManualAlly) {
+          isTargetValid = (teamId === 'TEAM_A');
         } else {
           isTargetValid = isAllyTarget ? (teamId === 'TEAM_A') : (teamId === 'TEAM_B');
         }
