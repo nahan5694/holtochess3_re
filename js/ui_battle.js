@@ -4746,12 +4746,18 @@ export function playSkillSoundWithRules(cardOrSkill, casterChar, isCounter = fal
     const soundUrls = rawTokens.map(resolveAudioUrl).filter(Boolean);
     if (soundUrls.length === 0) return;
 
+    // 옵션 창의 최종 효과음 볼륨(window.SFX_VOLUME)을 최우선 적용하고, 없으면 PlayerData.options 계산
     let baseVol = 0.5;
-    if (window.PlayerData?.settings?.sound) {
-      const master = (window.PlayerData.settings.sound.master ?? 100) / 100;
-      const sfx = (window.PlayerData.settings.sound.sfx ?? window.PlayerData.settings.sound.se ?? 100) / 100;
-      baseVol = Math.max(0, Math.min(1, master * sfx));
+    if (window.SFX_VOLUME !== undefined) {
+      baseVol = window.SFX_VOLUME;
+    } else {
+      const opt = window.PlayerData?.options || {};
+      if (opt.muteMaster || opt.muteSfx) return;
+      const master = (opt.volMaster ?? 100) / 100;
+      const sfx = (opt.volSfx ?? 100) / 100;
+      baseVol = master * sfx;
     }
+    baseVol = Math.max(0, Math.min(1, baseVol));
     if (baseVol <= 0) return;
 
     const activeAudios = [];
