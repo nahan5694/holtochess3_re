@@ -246,7 +246,7 @@ export function rerollCoreOption(coreUid, slotIndex) {
     if (!optDef) return false;
 
     // 티어별 리롤 비용
-    const rerollCosts = { 1: 3, 2: 5, 3: 7, 4: 10 };
+    const rerollCosts = { 1: 2, 2: 3, 3: 5, 4: 10 };
     const cost = rerollCosts[optDef.Core_E_Tier] || 5;
 
     const currentFrag = PlayerData.items['Item_010'] || 0;
