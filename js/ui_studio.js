@@ -2,12 +2,12 @@ import { GameData, PlayerData } from './state.js?v=004276';
 
 // Constants
 const STUDIO_TYPES = [
-  { id: 'game', name: '게임방송', emoji: '🎮', stat: 'Character_M_Game', req: 5000, item: 'Item_005', activeSlots: 3, restSlots: 5 },
-  { id: 'talk', name: '잡담방송', emoji: '💬', stat: 'Character_M_Talk', req: 1200, item: 'Item_008', activeSlots: 3, restSlots: 5 },
-  { id: 'sing', name: '노래방송', emoji: '🎤', stat: 'Character_M_Sing', req: 50000, item: 'Item_009', activeSlots: 3, restSlots: 5 },
-  { id: 'sexy', name: 'ASMR', emoji: '💋', stat: 'Character_M_Sexy', req: 20000, item: 'Item_010', activeSlots: 3, restSlots: 5 },
-  { id: 'plan', name: '기획방송', emoji: '💡', stat: 'Character_M_Plan', req: 1000, item: 'Item_002', activeSlots: 3, restSlots: 5 },
-  { id: 'passion', name: '내구방송', emoji: '🔥', stat: 'Character_M_Passion', req: 90000, item: 'Item_004', activeSlots: 3, restSlots: 5 },
+  { id: 'game', name: '게임방송', emoji: '🎮', stat: 'Character_M_Game', req: 30000, item: 'Item_005', activeSlots: 3, restSlots: 5 },
+  { id: 'talk', name: '잡담방송', emoji: '💬', stat: 'Character_M_Talk', req: 4500, item: 'Item_008', activeSlots: 3, restSlots: 5 },
+  { id: 'sing', name: '노래방송', emoji: '🎤', stat: 'Character_M_Sing', req: 75000, item: 'Item_009', activeSlots: 3, restSlots: 5 },
+  { id: 'sexy', name: 'ASMR', emoji: '💋', stat: 'Character_M_Sexy', req: 30000, item: 'Item_010', activeSlots: 3, restSlots: 5 },
+  { id: 'plan', name: '기획방송', emoji: '💡', stat: 'Character_M_Plan', req: 3000, item: 'Item_002', activeSlots: 3, restSlots: 5 },
+  { id: 'passion', name: '내구방송', emoji: '🔥', stat: 'Character_M_Passion', req: 100000, item: 'Item_004', activeSlots: 3, restSlots: 5 },
   { id: 'mgmtA', name: '매니지먼트A', emoji: '🏢', stat: null, req: 0, item: null, activeSlots: 1, restSlots: 0, isMgmt: true },
   { id: 'mgmtB', name: '매니지먼트B', emoji: '🏢', stat: null, req: 0, item: null, activeSlots: 1, restSlots: 0, isMgmt: true }
 ];
