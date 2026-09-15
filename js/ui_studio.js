@@ -1053,33 +1053,7 @@ function showItemTooltip(e, itemId) {
   if (!itemData) return;
   const currentAmt = PlayerData.items[itemId] || 0;
 
-  
-  let passiveHtml = '';
-  const pChar = window.PlayerData.characterStats[charId] || {};
-  const starVal = pChar.star || char.Character_Star || 1;
-  
-  if (window.GameData.m_skill && char.Character_M_Skill) {
-      const mSkill = window.GameData.m_skill.find(s => s.M_Skill_ID === char.Character_M_Skill);
-      if (mSkill) {
-          const sRoom = mSkill.M_Skill_Target_Room;
-          let targetRoom = typeof studioId !== 'undefined' ? studioId : deptId;
-          let isActive = (sRoom === 'ALL' || sRoom === targetRoom);
-          let pColor = isActive ? '#3498db' : '#95a5a6';
-          let pName = mSkill.M_Skill_Name || char.Character_M_Skill;
-          
-          if (starVal < 2) {
-              passiveHtml = `<div style="margin-top: 10px; border-top: 1px dashed #7f8c8d; padding-top: 8px; opacity: 0.5; filter: grayscale(100%);">
-                  <div style="font-weight: bold; color: #e74c3c;">🔒 [미해금] ${pName} (★2 해금)</div>
-                  <div style="font-size: 11px; color: #95a5a6; white-space: normal; margin-top: 2px;">${mSkill.M_Skill_Desc}</div>
-              </div>`;
-          } else {
-              passiveHtml = `<div style="margin-top: 10px; border-top: 1px dashed #7f8c8d; padding-top: 8px;">
-                  <div style="font-weight: bold; color: ${pColor};">✨ [패시브] ${pName}</div>
-                  <div style="font-size: 11px; color: ${pColor}; white-space: normal; margin-top: 2px;">${mSkill.M_Skill_Desc}</div>
-              </div>`;
-          }
-      }
-  }
+  //잘못된 툴팁 삭제
 
   ct.innerHTML = `
     <div style="font-weight:bold; font-size:14px; margin-bottom:5px; color:#f1c40f;">${itemData.Item_Name}</div>
