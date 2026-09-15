@@ -583,6 +583,7 @@ export class BattleEngine {
    * Executes a played card's resolution sequence (Rule 20, 21, 22).
    */
   executeCardPlay(team, card, manualTarget = null) {
+    console.log('[DEBUG] executeCardPlay 호출됨:', card?.skillName, '타깃:', manualTarget);
     if (!card) return;
 
     this.state.battlePhase = BattlePhase.CARD_RESOLUTION;
