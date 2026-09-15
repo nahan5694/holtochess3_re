@@ -273,7 +273,7 @@ export function renderCoreDetail() {
         });
 
         btnReroll.addEventListener("click", () => {
-            const rCost = {1:3, 2:5, 3:7, 4:10}[optDef.Core_E_Tier] || 5;
+            const rCost = {1:2, 2:3, 3:5, 4:10}[optDef.Core_E_Tier] || 5;
             showConfirmModal(`코어 조각 ${rCost}개를 소모하여 해당 슬롯을 리롤하시겠습니까?`, () => {
                 if (rerollCoreOption(core.uid, index)) {
                     renderCoreList();
