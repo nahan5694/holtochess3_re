@@ -208,7 +208,7 @@ export function promoteCoreOption(coreUid, slotIndex) {
     }
 
     // 승급 비용 체크
-    const promoteCost = optDef.Core_E_Tier * 100;
+    const promoteCost = optDef.Core_E_Tier * 50;
     if ((PlayerData.items['Item_010'] || 0) < promoteCost) {
         showMessage(`승급하려면 코어 조각 ${promoteCost}개가 필요합니다.`);
         return false;
