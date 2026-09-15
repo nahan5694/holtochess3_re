@@ -4715,6 +4715,10 @@ window.applyVolumeSettings = function() {
     if(opt.muteMaster === undefined) opt.muteMaster = false;
     if(opt.muteBgm === undefined) opt.muteBgm = false;
     if(opt.muteSfx === undefined) opt.muteSfx = false;
+
+    // [추가] 구버전 settings 객체와 완벽 동기화 (전투 시스템 누락 방지)
+    if (!PlayerData.settings) PlayerData.settings = {};
+    PlayerData.settings.sound = { master: opt.volMaster, bgm: opt.volBgm, sfx: opt.volSfx };
     
     // Calculate final volumes (기본 70% 축소 적용)
     const masterMult = opt.muteMaster ? 0 : (opt.volMaster / 100);
