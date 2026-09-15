@@ -489,7 +489,7 @@ window.openPromoteModal = function(core, slotIndex, optDef) {
     document.getElementById("promote-tier-from").innerText = romanize(optDef.Core_E_Tier);
     document.getElementById("promote-tier-to").innerText = romanize(optDef.Core_E_Tier + 1);
     
-    const reqFrags = optDef.Core_E_Tier * 100;
+    const reqFrags = optDef.Core_E_Tier * 50;
     document.getElementById("promote-req-fragments").innerText = reqFrags;
     
     const myFrags = PlayerData.items['Item_010'] || 0;
