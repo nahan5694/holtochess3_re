@@ -663,7 +663,7 @@ export function updateMainMenuNotificationDots() {
         const amt = PlayerData.studio.donations[itemId] || 0;
         let limit = 100;
         if (itemId === 'Item_002') limit = 500000;
-        else if (itemId === 'Item_008') limit = 500;
+        else if (itemId === 'Item_008') limit = 1000;
         if (amt >= limit) {
           hasStudioMax = true;
           break;
