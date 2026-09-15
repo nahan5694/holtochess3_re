@@ -4760,6 +4760,12 @@ export function playSkillSoundWithRules(cardOrSkill, casterChar, isCounter = fal
     baseVol = Math.max(0, Math.min(1, baseVol));
     if (baseVol <= 0) return;
 
+    // 특정 사운드 개별 볼륨 보정 테이블 (1.0 = 100%)
+    const SOUND_VOLUME_MODIFIERS = {
+      '전기톱': 0.6,       // 파일명/에셋명에 '전기톱' 포함 시
+      'asset_036': 0.6,     // 영문 파일명 대비
+    };
+
     const activeAudios = [];
     soundUrls.forEach((url, idx) => {
       const delayMs = idx * 250;
@@ -4767,7 +4773,21 @@ export function playSkillSoundWithRules(cardOrSkill, casterChar, isCounter = fal
       setTimeout(() => {
         try {
           const audio = new Audio(url);
-          audio.volume = baseVol;
+
+          // 1. 해당 사운드가 보정 목록에 있는지 확인
+          let volMult = 1.0;
+          for (const [key, mult] of Object.entries(SOUND_VOLUME_MODIFIERS)) {
+            if (url.includes(key) || (rawTokens[idx] && rawTokens[idx].includes(key))) {
+              volMult = mult;
+              break;
+            }
+          }
+
+          // 2. 기본 전투 볼륨에 개별 배율을 곱해 적용
+          const finalSoundVol = Math.max(0, Math.min(1, baseVol * volMult));
+          audio.volume = finalSoundVol;
+          audio._targetVol = finalSoundVol; // 페이드아웃용 볼륨 기억
+
           activeAudios.push(audio);
           audio.play().catch(e => console.log('[Skill Sound] Play notice:', e));
         } catch (err) {
@@ -4789,7 +4809,9 @@ export function playSkillSoundWithRules(cardOrSkill, casterChar, isCounter = fal
         const factor = Math.max(0, 1 - (step / fadeSteps));
         activeAudios.forEach(audio => {
           try {
-            audio.volume = Math.max(0, baseVol * factor);
+            // 개별 보정된 볼륨 기준으로 페이드아웃
+            const target = audio._targetVol ?? baseVol;
+            audio.volume = Math.max(0, target * factor);
           } catch (e) {}
         });
         if (step >= fadeSteps) {
