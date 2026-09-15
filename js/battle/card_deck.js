@@ -20,12 +20,51 @@ export function createCard({
   const skillId = skillData.Skill_ID || skillData.id || `SKILL_${cardType}`;
   const skillName = skillData.Skill_Name || skillData.name || `${ownerCharacter ? ownerCharacter.name : ''} 스킬`;
 
-  const targetType = String(skillData.Skill_Target || skillData.target || skillData.Act1_Target || (skillData.act1 && skillData.act1.target) || '').trim();
+  // --- [수정] Act1, Act2 데이터 안전 정규화 ---
+  const act1 = skillData.act1 || (skillData.Act1_Type ? {
+    type: skillData.Act1_Type,
+    target: skillData.Act1_Target,
+    method: skillData.Act1_Target_Method,
+    range: skillData.Act1_Range,
+    count: skillData.Act1_Target_Count
+  } : null);
+
+  const act2 = skillData.act2 || (skillData.Act2_Type ? {
+    type: skillData.Act2_Type,
+    target: skillData.Act2_Target,
+    method: skillData.Act2_Target_Method,
+    range: skillData.Act2_Range,
+    count: skillData.Act2_Target_Count
+  } : null);
+
+  const acts = [act1, act2].filter(Boolean);
+
+  // 적 대상 액션 또는 피해 액션을 우선 검색
+  const offensiveAct = acts.find(a => 
+    a.target === '적' || 
+    a.target === 'ALL_ENEMIES' || 
+    (a.type && a.type.startsWith('DAMAGE'))
+  );
+  // 수동 지정 액션 검색
+  const manualAct = acts.find(a => a.method === '수동' || a.method === 'MANUAL');
+
+  // 대표 액션 결정: 공격 액션 > 수동 액션 > Act1 > 기본값
+  const primaryAct = offensiveAct || manualAct || act1 || null;
+
+  // 대표 Target 결정 (공격/수동 액션 우선 반영)
+  const targetType = String(
+    skillData.Skill_Target || 
+    skillData.target || 
+    (primaryAct ? primaryAct.target : '') || 
+    skillData.Act1_Target || 
+    ''
+  ).trim();
+
   const isAllyOrSelf = targetType === '자신' || targetType === '아군' || targetType === '아군_전체' || targetType === '자신_중심_아군' || targetType === '최저체력_아군' || targetType === '무작위_아군' || targetType === 'ALLY' || targetType === 'SELF';
   const rawOffensive = skillData.Skill_Offensive || skillData.offensive;
   const desc = String(skillData.Skill_Desc || '');
-  const act1Type = String(skillData.Act1_Type || (skillData.act1 && skillData.act1.type) || '');
-  const act2Type = String(skillData.Act2_Type || (skillData.act2 && skillData.act2.type) || '');
+  const act1Type = String(act1?.type || '');
+  const act2Type = String(act2?.type || '');
 
   let offensiveFlag = true;
   const isExplicitOffensive = (
@@ -48,7 +87,8 @@ export function createCard({
     desc.includes('마법 피해') ||
     desc.includes('마법피해') ||
     desc.includes('피해를') ||
-    (Number(skillData.Skill_Multiplier || (skillData.act1 && skillData.act1.multiplier)) > 0 && !isAllyOrSelf)
+    Boolean(offensiveAct) ||
+    (Number(skillData.Skill_Multiplier || act1?.multiplier) > 0 && !isAllyOrSelf)
   );
 
   if (isExplicitOffensive || hasDamage) {
@@ -60,8 +100,10 @@ export function createCard({
   }
 
   const hasManualClause = desc.includes('지정한 적') || desc.includes('지정한 아군') || desc.includes('대상에 따라');
-  const targetMethod = (skillData.Skill_Target_Method === '수동' || skillData.Act1_Target_Method === '수동' || skillData.act1?.method === '수동' || skillData.targetMethod === 'MANUAL' || hasManualClause) ? 'MANUAL' : 'AUTO';
-  let range = skillData.Skill_Target_Range || skillData.range || (skillData.act1 && skillData.act1.range) || skillData.Act1_Range || 'SINGLE';
+  const hasManualAct = acts.some(a => a.method === '수동' || a.method === 'MANUAL');
+  const targetMethod = (skillData.Skill_Target_Method === '수동' || hasManualAct || skillData.targetMethod === 'MANUAL' || hasManualClause) ? 'MANUAL' : 'AUTO';
+
+  let range = skillData.Skill_Target_Range || skillData.range || (primaryAct && primaryAct.range) || skillData.Act1_Range || 'SINGLE';
   if ((desc.startsWith('적 1명에게') || desc.startsWith('지정한 적 1명에게')) && range === 'ALL') {
     range = 'SINGLE';
   }
@@ -76,6 +118,13 @@ export function createCard({
     : String(rawTags).split(',').map(s => s.trim()).filter(Boolean);
   const isQuick = tags.includes('속공') || Boolean(skillData.isQuick);
 
+  const targetCount = Number(
+    skillData.Skill_Target_Count || 
+    (primaryAct && primaryAct.count) || 
+    skillData.Act1_Target_Count || 
+    1
+  );
+
   return {
     cardId: `CARD_${Math.random().toString(36).substr(2, 8)}`,
     ownerCharacterId: charId,
@@ -88,7 +137,7 @@ export function createCard({
     targetType: targetType,
     targetMethod: targetMethod,
     targetMode: targetMethod,
-    targetCount: Number(skillData.Skill_Target_Count || (skillData.act1 && skillData.act1.count) || skillData.Act1_Target_Count || 1),
+    targetCount: targetCount,
     range: range,
     targetRange: range,
     targetScope: range,
