@@ -433,7 +433,7 @@ function updateProgress() {
     
     let currentAmt = PlayerData.studio.donations?.[type.item] || 0;
     let limit = 100;
-    if (type.item === 'Item_002') limit = 500000;
+    if (type.item === 'Item_002') limit = 1000000;
     else if (type.item === 'Item_008') limit = 1000;
     
     if (currentAmt >= limit) {
@@ -466,8 +466,8 @@ function renderDonationBox() {
       const itemData = Array.isArray(GameData.items) ? GameData.items.find(i => i.Item_ID === itemId) : null;
       if (itemData) {
         let limit = 100;
-        if (itemId === 'Item_002') limit = 500000;
-        else if (itemId === 'Item_008') limit = 500;
+        if (itemId === 'Item_002') limit = 1000000;
+        else if (itemId === 'Item_008') limit = 1000;
         const isMax = amt >= limit;
         
         const div = document.createElement('div');
@@ -504,8 +504,8 @@ function tickStudio(dtSeconds) {
     let isStopped = false;
     if (!type.isMgmt) {
       let limit = 100;
-      if (type.item === 'Item_002') limit = 500000;
-      else if (type.item === 'Item_008') limit = 500;
+      if (type.item === 'Item_002') limit = 1000000;
+      else if (type.item === 'Item_008') limit = 1000;
       let currentAmt = PlayerData.studio.donations?.[type.item] || 0;
       if (currentAmt >= limit) {
          isStopped = true;
@@ -685,8 +685,8 @@ function tickStudio(dtSeconds) {
     if (totalStat > 0) {
       let currentAmt = PlayerData.studio.donations?.[type.item] || 0;
       let limit = 100;
-      if (type.item === 'Item_002') limit = 500000;
-      else if (type.item === 'Item_008') limit = 500;
+      if (type.item === 'Item_002') limit = 1000000;
+      else if (type.item === 'Item_008') limit = 1000;
       
       if (currentAmt >= limit) {
          s.progress = 0;
@@ -718,8 +718,8 @@ function tickStudio(dtSeconds) {
         if (isGreat) rewardAmt *= 2; 
         
         let limit = 100;
-        if (type.item === 'Item_002') limit = 500000;
-        else if (type.item === 'Item_008') limit = 500;
+        if (type.item === 'Item_002') limit = 1000000;
+        else if (type.item === 'Item_008') limit = 1000;
         
         PlayerData.studio.donations[type.item] = Math.min(limit, (PlayerData.studio.donations[type.item] || 0) + rewardAmt);
       }
