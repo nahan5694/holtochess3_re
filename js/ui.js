@@ -324,19 +324,19 @@ export function changeSceneWipe(fromScene, toScene) {
 }
 
 // =========================================
-// Time System (오프라인 시간 보존 잠금 & 60초 분할 시뮬레이션)
+// Time System (오프라인 시간 보존 잠금 & 60초 분할 시뮬레이션 완결판)
 // =========================================
 
 let lastGlobalTimeTick = Date.now();
-let isOfflineCalculationComplete = false; // [핵심] 오프라인 정산 완료 전까지 시각 덮어쓰기 방지 잠금장치
+let isOfflineCalculationComplete = false; // 오프라인 정산 완료 전까지 시각 덮어쓰기 방지 잠금장치
 
-// [핵심] 페이지가 열리자마자 1시간 전의 오프라인 시간을 즉시 안전하게 변수에 확보
+// [1. 핵심] 스크립트 실행 즉시 오프라인 경과 시간(초)을 변수에 안전하게 선점 확보
 const initialRawLocalTick = parseInt(localStorage.getItem('HOLTO_LAST_OFFLINE_TICK') || '0', 10);
-const initialPlayerTick = window.PlayerData?.lastGlobalTimeTick || 0;
+const initialPlayerTick = (window.PlayerData || PlayerData)?.lastGlobalTimeTick || 0;
 const initialSavedTick = Math.max(initialRawLocalTick, initialPlayerTick);
 let pendingOfflineSeconds = initialSavedTick > 0 ? Math.max(0, Math.floor((Date.now() - initialSavedTick) / 1000)) : 0;
 
-// 1. 순수 AP & 티켓 계산 함수 (수식으로 즉시 일괄 정산)
+// 순수 AP & 티켓 계산 함수 (수식으로 즉시 일괄 정산)
 function processApAndTickets(elapsedSeconds) {
   if (elapsedSeconds <= 0) return;
 
@@ -358,8 +358,9 @@ function processApAndTickets(elapsedSeconds) {
 
     // 최대 AP 계산
     let maxAP = 120;
-    if (window.GameData && window.GameData.levels && window.PlayerData) {
-      const lvlData = window.GameData.levels.find(l => parseInt((l.Account_Level || l.Level || l['레벨'] || 1)) === (window.PlayerData.level || 1));
+    if (window.GameData && window.GameData.levels && (window.PlayerData || PlayerData)) {
+      const pData = window.PlayerData || PlayerData;
+      const lvlData = window.GameData.levels.find(l => parseInt((l.Account_Level || l.Level || l['레벨'] || 1)) === (pData.level || 1));
       if (lvlData && lvlData.Account_Max_AP) {
         maxAP = parseInt(lvlData.Account_Max_AP);
       }
@@ -378,7 +379,7 @@ function processApAndTickets(elapsedSeconds) {
   }
 }
 
-// 2. 경과 시간 시뮬레이션 (캐릭터 교대/피로도를 위해 60초 단위로 쪼개서 실행)
+// 경과 시간 시뮬레이션 (60초 단위 분할)
 function processTimeProgress(totalSeconds) {
   if (totalSeconds <= 0) return;
 
@@ -416,7 +417,7 @@ function processTimeProgress(totalSeconds) {
     }
   }
 
-  // [핵심] 오프라인 정산이 완료된 이후에만 현재 시각을 스토리지에 갱신
+  // [2. 핵심] 오프라인 정산이 완전히 끝난 이후에만 현재 시각을 스토리지에 갱신
   if (isOfflineCalculationComplete) {
     try {
       localStorage.setItem('HOLTO_LAST_OFFLINE_TICK', String(Date.now()));
@@ -431,7 +432,7 @@ function processTimeProgress(totalSeconds) {
 }
 
 function runGlobalTimeSystem() {
-  // 오프라인 정산이 끝나기 전에는 일반 루프 실행 차단
+  // 오프라인 정산 완료 전에는 일반 타이머 동작 차단 (시각 덮어쓰기 방지)
   if (!isOfflineCalculationComplete) return;
 
   try {
@@ -463,9 +464,9 @@ export function startGlobalTimeSystem() {
   window.startGlobalTimeSystem = startGlobalTimeSystem;
 
   if (!globalTimerId) {
-    // 1. 구글 시트(api.js) 로딩 완료 및 스튜디오/사무소 엔진 등록 확인
+    // 구글 시트(api.js), 세이브 데이터, 스튜디오/사무소 엔진 3요소 로딩 완료 대기
     const isGameDataReady = window.GameData && Array.isArray(window.GameData.characters) && window.GameData.characters.length > 0;
-    const isSaveDataReady = window.PlayerData && window.PlayerData.items !== undefined;
+    const isSaveDataReady = (window.PlayerData || PlayerData) && (window.PlayerData?.items !== undefined || PlayerData?.items !== undefined);
     const isEngineReady = typeof window.tickStudio === 'function' && typeof window.tickOffice === 'function';
 
     if (!isGameDataReady || !isSaveDataReady || !isEngineReady) {
@@ -476,19 +477,19 @@ export function startGlobalTimeSystem() {
     const savedGlobalTime = parseInt(localStorage.getItem('HOLTO_LAST_GLOBAL_TIME') || '0', 10);
     if (savedGlobalTime > 0 && savedGlobalTime <= 300) {
       globalTime = savedGlobalTime;
-    } else if (window.PlayerData?.globalTime !== undefined) {
-      globalTime = PlayerData.globalTime;
+    } else if ((window.PlayerData || PlayerData)?.globalTime !== undefined) {
+      globalTime = (window.PlayerData || PlayerData).globalTime;
     }
 
-    // 2. 미리 확보해 둔 1시간(pendingOfflineSeconds)을 손실 없이 안전하게 일괄 분할 정산
+    // [3. 핵심] 보존해 둔 오프라인 시간을 손실 없이 안전 정산
     if (pendingOfflineSeconds > 0) {
       console.log(`⏳ 오프라인 경과 시간 (${pendingOfflineSeconds}초) 안전 정산 시작...`);
       processTimeProgress(pendingOfflineSeconds);
       pendingOfflineSeconds = 0;
-      console.log(`✅ 오프라인 정산 완료!`);
+      console.log(`✅ 오프라인 정산 완료! (스튜디오 & 사무소 갱신)`);
     }
 
-    // 3. 정산이 무사히 끝났으므로 잠금 해제 및 시각 동기화
+    // 정산 완료 후 잠금 해제 및 시각 동기화
     isOfflineCalculationComplete = true;
     lastGlobalTimeTick = Date.now();
 
@@ -500,10 +501,12 @@ export function startGlobalTimeSystem() {
     if (window.PlayerData) {
       PlayerData.lastGlobalTimeTick = lastGlobalTimeTick;
       PlayerData.globalTime = globalTime;
-      if (window.savePlayerData) window.savePlayerData();
+    }
+    if (typeof window.savePlayerData === 'function') {
+      try { window.savePlayerData(); } catch (e) {}
     }
 
-    // 4. 화면 UI 갱신
+    // 화면 UI 즉시 갱신
     const timeText = document.getElementById("time-text");
     const gaugeFill = document.getElementById("time-gauge-fill");
     if (timeText && gaugeFill) {
@@ -513,6 +516,7 @@ export function startGlobalTimeSystem() {
     }
     if (typeof window.updateStudioUI === 'function') window.updateStudioUI();
     if (typeof window.updateOfficeUI === 'function') window.updateOfficeUI();
+    if (typeof window.renderOfficeSupplies === 'function') window.renderOfficeSupplies();
 
     globalTimerId = setInterval(runGlobalTimeSystem, 1000);
     window.globalTimerId = globalTimerId;
@@ -525,7 +529,7 @@ if (typeof window !== 'undefined') {
   startGlobalTimeSystem();
 }
 
-// 탭 복귀 시 정산 (오프라인 정산 완료 후에만 반응)
+// 탭 활성화 시 정산 (오프라인 정산 완료 후에만 반응)
 if (typeof document !== 'undefined' && !window._globalTimeVisibilityBound) {
   window._globalTimeVisibilityBound = true;
   document.addEventListener('visibilitychange', () => {
