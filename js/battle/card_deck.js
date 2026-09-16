@@ -299,14 +299,40 @@ export function applyMasteryToSkill(origSkill, masteryLevel = 0) {
   if (!bonus.mult && !bonus.oh) return origSkill;
 
   const clone = { ...origSkill };
+  const baseMult = Number(origSkill.Skill_Multiplier) || 0;
+
+  // 1. 계수(Multiplier) 수치 반영
   if (bonus.mult) {
-    clone.Skill_Multiplier = (Number(origSkill.Skill_Multiplier) || 0) + bonus.mult;
+    clone.Skill_Multiplier = baseMult + bonus.mult;
   }
+
+  // 2. 오버히트(Overheat) 수치 반영
   if (bonus.oh) {
     clone.Skill_Overheat = (Number(origSkill.Skill_Overheat) || 0) + bonus.oh;
   }
+
   clone._masteryBonus = { level: masteryLevel, type: mType, mult: bonus.mult, oh: bonus.oh };
+
+  // 3. 카드 및 스킬 텍스트(Skill_Desc) 내 계수 수치 자동 갱신
+  if (origSkill.Skill_Desc) {
+    let desc = origSkill.Skill_Desc;
+    if (baseMult > 0 && bonus.mult) {
+      const newMult = baseMult + bonus.mult;
+      // 설명문 안의 "120%" 형태를 찾아 "123%" 처럼 숙련도가 더해진 수치로 치환 (\b로 20%가 120%의 뒷자리를 건드리지 않도록 방지)
+      const regex = new RegExp(`\\b${baseMult}\\s*%`, 'g');
+      if (regex.test(desc)) {
+        desc = desc.replace(regex, `${newMult}%`);
+      }
+    }
+    clone.Skill_Desc = desc;
+  }
+
   return clone;
+}
+
+// 정보창 등 다른 UI 스크립트에서도 바로 사용할 수 있도록 전역 객체 등록
+if (typeof window !== 'undefined') {
+  window.applyMasteryToSkill = applyMasteryToSkill;
 }
 
 /**
