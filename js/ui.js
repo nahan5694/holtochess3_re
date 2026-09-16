@@ -4597,53 +4597,26 @@ function renderCombatSkillsUI(char, star = 3, isMyChar = false) {
               <div class="skill-desc" style="color: #555; line-height: 1.4;">(데이터 미구현: ${skillId})</div>
           `;
       } else {
-          // 1. 숙련도 레벨 확인
           const mLevel = label === '고유기' ? ssMastery : (label === '궁극기' ? asMastery : 0);
 
-          // 2. 숙련도 적용 함수 호출
+          // 숙련도 적용 함수 호출 (Act1/Act2 계수 및 오버히트, 설명문 자동 갱신)
           const masteryFunc = (typeof applyMasteryToSkill === 'function') 
               ? applyMasteryToSkill 
               : (typeof window !== 'undefined' ? window.applyMasteryToSkill : null);
 
-          // 3. 숙련도가 적용된 스킬 객체 생성
           const effectiveSkill = (mLevel > 0 && typeof masteryFunc === 'function')
               ? masteryFunc(sObj, mLevel)
-              : { ...sObj };
+              : sObj;
 
           const tagsHtml = renderSkillTagBadges(effectiveSkill.Skill_Tags);
           
-          // 4. 오버히트 렌더링 (86(-9) 대신 최종 결과값인 86만 깔끔하게 표시)
+          // 오버히트: 결과값만 깔끔하게 단일 표시
           let ohHtml = '';
-          const finalOh = Number(effectiveSkill.Skill_Overheat !== undefined ? effectiveSkill.Skill_Overheat : sObj.Skill_Overheat) || 0;
+          const finalOh = Number(effectiveSkill.Skill_Overheat) || 0;
           const hasOh = (sObj.Skill_Overheat !== undefined && String(sObj.Skill_Overheat).trim() !== '');
 
           if (hasOh) {
               ohHtml = `<span style="background: #e67e22; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 0.8em; font-weight: bold;">오버히트: ${finalOh}</span>`;
-          }
-
-          // 5. 숙련도 보너스(계수 % 증가) 텍스트 실제 치환 처리
-          let finalDesc = effectiveSkill.Skill_Desc || '';
-          if (mLevel > 0) {
-              // 스킬 타입 확인 (A, B, C)
-              const rawType = (sObj.Skill_Master || 'A').trim().toUpperCase();
-              const mType = ['A', 'B', 'C'].includes(rawType) ? rawType : 'A';
-              const bonusTable = (typeof SKILL_MASTERY_BONUS !== 'undefined') ? SKILL_MASTERY_BONUS : (window.SKILL_MASTERY_BONUS || {});
-              const bonus = (bonusTable[mType] && bonusTable[mType][mLevel]) ? bonusTable[mType][mLevel] : (effectiveSkill._masteryBonus || { mult: 0 });
-
-              // 증가할 계수 수치(mult)가 있는 경우 설명문의 % 숫자를 직접 합산하여 변경
-              if (bonus && bonus.mult > 0) {
-                  // 피해/회복/보호막 앞뒤의 퍼센트(%) 숫자를 찾아 증가 수치만큼 합산
-                  finalDesc = finalDesc.replace(/(\d+(?:\.\d+)?)\s*%/g, (match, p1) => {
-                      const baseNum = parseFloat(p1);
-                      // 100% 미만의 확률성 수치(예: 30% 확률) 오작동 방지:
-                      // 스킬 기본 계수 필드가 있으면 해당 숫자만 정확히 치환, 없으면 모든 계수 치환
-                      const baseMult = Number(sObj.Skill_Multiplier || sObj.Skill_Val1 || sObj.Act1_Val1 || 0);
-                      if (baseMult > 0 && baseNum !== baseMult) {
-                          return match; // 기본 계수와 다른 수치(확률 등)는 유지
-                      }
-                      return `${baseNum + bonus.mult}%`;
-                  });
-              }
           }
 
           let masteryBadge = '';
@@ -4664,7 +4637,7 @@ function renderCombatSkillsUI(char, star = 3, isMyChar = false) {
                   ${tagsHtml}
               </div>
               <div class="skill-desc" style="color: #444; line-height: 1.5; font-size: 0.95em;">
-                  ${formatSkillTextWithKeywords(finalDesc)}
+                  ${formatSkillTextWithKeywords(effectiveSkill.Skill_Desc || '')}
               </div>
           `;
       }
