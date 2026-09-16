@@ -4597,15 +4597,35 @@ function renderCombatSkillsUI(char, star = 3, isMyChar = false) {
               <div class="skill-desc" style="color: #555; line-height: 1.4;">(데이터 미구현: ${skillId})</div>
           `;
       } else {
-          const tagsHtml = renderSkillTagBadges(sObj.Skill_Tags);
+          // 1. 숙련도 레벨 확인
+          const mLevel = label === '고유기' ? ssMastery : (label === '궁극기' ? asMastery : 0);
+
+          // 2. 숙련도 적용 함수 호출 (window 또는 import된 함수 안전 조회)
+          const masteryFunc = (typeof applyMasteryToSkill === 'function') 
+              ? applyMasteryToSkill 
+              : (typeof window !== 'undefined' ? window.applyMasteryToSkill : null);
+
+          // 3. 숙련도가 적용된 스킬 객체 생성 (설명문 계수 및 오버히트 수치 갱신됨)
+          const effectiveSkill = (mLevel > 0 && typeof masteryFunc === 'function')
+              ? masteryFunc(sObj, mLevel)
+              : sObj;
+
+          const tagsHtml = renderSkillTagBadges(effectiveSkill.Skill_Tags);
           
+          // 4. 오버히트 렌더링 (숙련도로 줄어든 경우 초록색 및 감소폭 표시)
           let ohHtml = '';
-          const ohVal = (sObj.Skill_Overheat || '').trim();
-          if (ohVal) {
-              ohHtml = `<span style="background: #e67e22; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 0.8em; font-weight: bold;">오버히트: ${ohVal}</span>`;
+          const origOh = Number(sObj.Skill_Overheat) || 0;
+          const finalOh = Number(effectiveSkill.Skill_Overheat) || 0;
+          const hasOh = (sObj.Skill_Overheat !== undefined && String(sObj.Skill_Overheat).trim() !== '');
+
+          if (hasOh) {
+              if (mLevel > 0 && finalOh < origOh) {
+                  ohHtml = `<span style="background: #27ae60; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 0.8em; font-weight: bold;" title="기본 오버히트: ${origOh}">오버히트: ${finalOh} (${finalOh - origOh})</span>`;
+              } else {
+                  ohHtml = `<span style="background: #e67e22; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 0.8em; font-weight: bold;">오버히트: ${finalOh}</span>`;
+              }
           }
 
-          const mLevel = label === '고유기' ? ssMastery : (label === '궁극기' ? asMastery : 0);
           let masteryBadge = '';
           if (mLevel > 0) {
               masteryBadge = `<span style="background:linear-gradient(135deg, #f39c12, #e67e22); color:#fff; padding:2px 7px; border-radius:4px; font-size:0.75em; font-weight:bold; box-shadow:0 1px 4px rgba(0,0,0,0.2);">숙련 Lv.${mLevel}</span>`;
@@ -4617,14 +4637,14 @@ function renderCombatSkillsUI(char, star = 3, isMyChar = false) {
                   <span>${label}${isLocked ? lockText : ''}</span>
               </div>
               <div style="font-size: 1.1em; font-weight: bold; color: #2c3e50; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                  ${sObj.Skill_Name || '임시 스킬명'}
+                  ${effectiveSkill.Skill_Name || '임시 스킬명'}
               </div>
               <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
                   ${ohHtml}
                   ${tagsHtml}
               </div>
               <div class="skill-desc" style="color: #444; line-height: 1.5; font-size: 0.95em;">
-                  ${formatSkillTextWithKeywords(sObj.Skill_Desc || '')}
+                  ${formatSkillTextWithKeywords(effectiveSkill.Skill_Desc || '')}
               </div>
           `;
       }
