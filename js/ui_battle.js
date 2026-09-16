@@ -575,7 +575,7 @@ function bindEngineEvents(engine) {
 
     if (isQuickExtraTurn) {
       // Quick Ultimate waits for 4.5s cutscene; Quick Basic/Unique waits for 1.9s (slightly longer than 1.65s floating text)
-      const delayMs = lastPlayedCardWasUltimate ? 3000 : 1900;
+      const delayMs = lastPlayedCardWasUltimate ? 1800 : 1900;
       setTimeout(() => {
         const rscModalNow = document.getElementById('arena-rsc-modal');
         if (rscModalNow && rscModalNow.classList.contains('active')) {
