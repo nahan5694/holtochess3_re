@@ -1627,6 +1627,21 @@ window.openHelpModal = openHelpModal;
         window.savePlayerData();
       }
 
+        } else if (code === "7474") {
+      if (!PlayerData.items) PlayerData.items = {};
+      PlayerData.items['Item_010'] = (PlayerData.items['Item_010'] || 0) + 100;
+
+      inputDevCode.value = "";
+      alert("🎁 개발자 코드(7474) 보상이 지급되었습니다! (Item_010 +100)");
+
+      updateTopCurrencies();
+      if (typeof window.renderWarehouseItems === 'function') {
+        window.renderWarehouseItems();
+      }
+      if (typeof window.savePlayerData === 'function') {
+        window.savePlayerData();
+      }
+
     } else if (code === "0782") {
         if (!PlayerData.items) PlayerData.items = {};
         const devRewards = {
