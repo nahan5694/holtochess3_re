@@ -4642,6 +4642,7 @@ function renderCombatSkillsUI(char, star = 3, isMyChar = false) {
           `;
       }
       skillsContainer.appendChild(box);
+  };
 
   // Skill Mastery (★2 이상 해금)
   const charStar = (charStats && charStats.star) ? charStats.star : (star || 1);
