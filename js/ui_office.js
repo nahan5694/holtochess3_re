@@ -897,6 +897,9 @@ window.tickOffice = function(dtSeconds) {
     if (!Array.isArray(s.active)) s.active = new Array(type.maxActive).fill(null);
     if (!Array.isArray(s.rest)) s.rest = new Array(type.maxRest).fill(null);
     
+    // 해당 부서가 실제 생산 작업 중인지 확인
+    const isWorking = Boolean(s.craftItem && s.craftQueue > 0);
+
     // Condition loop
     s.active.forEach((cid, index) => {
       if(cid) {
@@ -904,13 +907,22 @@ window.tickOffice = function(dtSeconds) {
         const stats = PlayerData.characterStats[cid];
         if (stats) {
           if (stats.condition === undefined) stats.condition = 100;
-          let selfDrainReduce = (window.getCharMSkillEffect ? window.getCharMSkillEffect(cid, 'Self_Cond_Drain', 'ALL') : 0) / 60;
-          let actualDrain = Math.max(0, mgmtB - selfDrainReduce);
-          stats.condition = Math.max(0, stats.condition - (actualDrain * dtSeconds));
+
+          if (isWorking) {
+            // ★ 작업 중일 때만 컨디션 소모
+            let selfDrainReduce = (window.getCharMSkillEffect ? window.getCharMSkillEffect(cid, 'Self_Cond_Drain', 'ALL') : 0) / 60;
+            let actualDrain = Math.max(0, mgmtB - selfDrainReduce);
+            stats.condition = Math.max(0, stats.condition - (actualDrain * dtSeconds));
+          } else {
+            // ★ 생산 완료/대기 중일 때는 미배치 기본 회복(휴식의 50%) 적용
+            let selfRecoverBoost = (window.getCharMSkillEffect ? window.getCharMSkillEffect(cid, 'Self_Cond_Recover', 'ALL') : 0) / 60;
+            let idleRecover = (mgmtA + selfRecoverBoost) * 0.5;
+            stats.condition = Math.min(100, stats.condition + (idleRecover * dtSeconds));
+          }
         }
         
-        // Auto-swap logic
-        if (stats.condition <= 0) {
+        // Auto-swap logic (작업 중일 때만 방전 교체 실행)
+        if (isWorking && stats && stats.condition <= 0) {
           let bestIdx = -1, bestStat = -1, emptyIdx = -1;
           s.rest.forEach((rcid, ridx) => {
             if(rcid) {
@@ -1196,10 +1208,22 @@ window.showOfficeCharTooltip = function(charId, deptId, slotType) {
   let prodHtml = '';
   
   if (slotType === 'active') {
-    let selfDrainReduce = (window.getCharMSkillEffect ? window.getCharMSkillEffect(charId, 'Self_Cond_Drain', 'ALL') : 0);
-    let actualDrainPerMin = Math.max(0, getMgmtBRate() - selfDrainReduce);
-    const rateH = (actualDrainPerMin * 60).toFixed(1);
-    condRateHtml = `시간당 소모: <span style="color:#e74c3c;">-${rateH}</span>`;
+    const deptState = PlayerData.office ? PlayerData.office[deptId] : null;
+    const isWorking = Boolean(deptState && deptState.craftItem && deptState.craftQueue > 0);
+
+    if (isWorking) {
+      // 작업 중: 소모 표시
+      let selfDrainReduce = (window.getCharMSkillEffect ? window.getCharMSkillEffect(charId, 'Self_Cond_Drain', 'ALL') : 0);
+      let actualDrainPerMin = Math.max(0, (window.getMgmtBRate ? window.getMgmtBRate() : 1) - selfDrainReduce);
+      const rateH = (actualDrainPerMin * 60).toFixed(1);
+      condRateHtml = `시간당 소모: <span style="color:#e74c3c;">-${rateH}</span>`;
+    } else {
+      // ★ 대기 중: 미배치 회복(50%) 표시
+      let selfRecoverBoost = (window.getCharMSkillEffect ? window.getCharMSkillEffect(charId, 'Self_Cond_Recover', 'ALL') : 0);
+      let actualRecoverPerMin = ((window.getMgmtARate ? window.getMgmtARate() : 3) + selfRecoverBoost) * 0.5;
+      const rateH = (actualRecoverPerMin * 60).toFixed(1);
+      condRateHtml = `작업 대기 (미배치 회복): <span style="color:#2ecc71;">+${rateH}</span>`;
+    }
     
     const baseVal = window.getCharOfficeStat(charId, deptId);
     const statBoost = window.getCharMSkillEffect ? window.getCharMSkillEffect(charId, 'Self_Prod', deptId) : 0;
