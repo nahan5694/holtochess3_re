@@ -86,7 +86,7 @@ function renderCoreList() {
         el.style.marginBottom = "8px";
         el.style.cursor = "pointer";
         el.style.boxSizing = "border-box";
-                el.style.background = "white";
+        el.style.background = "white";
         el.style.border = "1px solid #dee2e6";
         el.style.color = "#333";
         el.style.borderRadius = "12px";
@@ -107,6 +107,25 @@ function renderCoreList() {
         }).join('');
 
         const assetUrl = getCoreAssetUrl(core.element);
+
+        // --- 빨간 사각형 영역: 장착 캐릭터 표시 및 해제 버튼 UI 생성 ---
+        let equipSlotHtml = '';
+        if (core.equippedTo) {
+            const equippedChar = GameData.characters.find(c => c.Character_ID === core.equippedTo);
+            const charName = equippedChar ? equippedChar.Character_Name : '장착 중';
+
+            equipSlotHtml = `
+                <div class="core-equip-badge" 
+                     data-char-id="${core.equippedTo}" 
+                     data-char-name="${charName}"
+                     style="width: 100px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold; border-radius: 6px; background: #e8f4fd; color: #0984e3; border: 1px solid #bfe3fb; transition: all 0.2s ease; cursor: pointer; user-select: none;">
+                    ${charName}
+                </div>
+            `;
+        } else {
+            // 미장착 코어는 자리를 맞춰주기 위해 너비 100px의 빈 공간 유지
+            equipSlotHtml = `<div style="width: 100px; flex-shrink: 0;"></div>`;
+        }
         
         el.innerHTML = `
             <div class="core-item-icon" style="width: 40px; height: 40px; margin-right: 15px; flex-shrink: 0; background-image: url('${assetUrl}'); background-size: contain; background-repeat: no-repeat; background-position: center; border: none;"></div>
@@ -121,12 +140,53 @@ function renderCoreList() {
                     ${slotsHtml}
                 </div>
             </div>
+            ${equipSlotHtml}
         `;
+
+        // 마우스 호버 시 [장착 해제]로 바뀌고, 누르면 장착 해제되는 이벤트
+        const equipBadge = el.querySelector('.core-equip-badge');
+        if (equipBadge) {
+            const charId = equipBadge.dataset.charId;
+            const originalName = equipBadge.dataset.charName;
+
+            // 마우스 올렸을 때: 빨간색 '장착 해제' 버튼
+            equipBadge.addEventListener('mouseenter', () => {
+                equipBadge.innerText = '장착 해제';
+                equipBadge.style.background = '#ffeaa7';
+                equipBadge.style.color = '#d63031';
+                equipBadge.style.borderColor = '#ff7675';
+            });
+
+            // 마우스 뗐을 때: 원래 파란색 캐릭터 이름
+            equipBadge.addEventListener('mouseleave', () => {
+                equipBadge.innerText = originalName;
+                equipBadge.style.background = '#e8f4fd';
+                equipBadge.style.color = '#0984e3';
+                equipBadge.style.borderColor = '#bfe3fb';
+            });
+
+            // 클릭 시: 장착 해제 실행
+            equipBadge.addEventListener('click', (e) => {
+                e.stopPropagation(); // 코어 상세 패널이 열리는 부모 클릭 방지
+                if (window.unequipCore) {
+                    window.unequipCore(charId);
+                } else {
+                    core.equippedTo = null;
+                    if (PlayerData.characterStats && PlayerData.characterStats[charId]) {
+                        PlayerData.characterStats[charId].equippedCoreUid = null;
+                    }
+                }
+                renderCoreList();
+                renderCoreDetail();
+            });
+        }
+
         el.addEventListener("click", () => {
             currentSelectedCoreUid = core.uid;
             renderCoreList();
             renderCoreDetail();
         });
+
         listContainer.appendChild(el);
     });
 }
