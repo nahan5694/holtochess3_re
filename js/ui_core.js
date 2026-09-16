@@ -411,31 +411,29 @@ window.updateEnhanceModalProgress = function() {
         addVpFromCores += parseInt(cb.getAttribute("data-vp") || 0);
     });
     
-    let neededVp = enhancingTargetVp - enhancingCurrentVp - addVpFromCores;
-    if (neededVp < 0) neededVp = 0; // Overshot with cores
+    // [수정] 5 - 4.9 = 0.09999... 오차를 방지하기 위해 소수점 1자리로 반올림
+    let neededVp = Math.max(0, Math.round((enhancingTargetVp - enhancingCurrentVp - addVpFromCores) * 10) / 10);
     
     const myFrags = PlayerData.items['Item_010'] || 0;
     
-    // Validate enhancingReqFrags
+    // [수정] 필요 조각 수는 무조건 정수로 고정 (소수점 조각 방지)
+    const maxNeededFrags = Math.round(neededVp * 10);
+    
     if (enhancingReqFrags > myFrags) enhancingReqFrags = myFrags;
+    if (enhancingReqFrags > maxNeededFrags) enhancingReqFrags = maxNeededFrags;
     if (enhancingReqFrags < 0) enhancingReqFrags = 0;
+    enhancingReqFrags = Math.floor(enhancingReqFrags);
     
-    // Prevent over-spending if already maxed
-    const maxNeededFrags = neededVp * 10;
-    if (enhancingReqFrags > maxNeededFrags) {
-        enhancingReqFrags = maxNeededFrags;
-    }
-    
-    let addVpFromFrags = enhancingReqFrags / 10;
+    // [수정] 조각으로 증가하는 VP도 소수점 1자리로 고정
+    let addVpFromFrags = Math.round((enhancingReqFrags / 10) * 10) / 10;
     
     document.getElementById("enhance-req-fragments").innerText = enhancingReqFrags;
     
-    const totalAddVp = addVpFromCores + addVpFromFrags;
-    document.getElementById("enhance-frag-vp-text").innerText = `+${Number(addVpFromFrags.toFixed(1))} VP`;
+    const totalAddVp = Math.round((addVpFromCores + addVpFromFrags) * 10) / 10;
+    document.getElementById("enhance-frag-vp-text").innerText = `+${addVpFromFrags.toFixed(1)} VP`;
     
-    const displayVp = Math.min(enhancingCurrentVp + totalAddVp, enhancingTargetVp);
+    const displayVp = Math.min(enhancingTargetVp, Math.round((enhancingCurrentVp + totalAddVp) * 10) / 10);
     
-    // Update progress bar dynamically without changing the current inner text yet
     let pct = (displayVp / enhancingTargetVp) * 100;
     document.getElementById("enhance-progress-bar").style.width = `${pct}%`;
     
@@ -475,7 +473,7 @@ window.updateEnhanceModalProgress = function() {
         btnConfirm.disabled = true;
         btnConfirm.innerText = `재료 부족`;
     }
-}
+};
 
 // Promote Modal Logic
 let promotingCoreUid = null;
@@ -528,8 +526,9 @@ export function initCoreUI() {
                 coreUidsToRemove.push(cb.getAttribute("data-uid"));
             });
             
-            const reqFrags = parseInt(document.getElementById("enhance-req-fragments").innerText);
-            const totalAddVp = addVpFromCores + (reqFrags / 10);
+            const reqFrags = parseInt(document.getElementById("enhance-req-fragments").innerText) || 0;
+            // [수정] 조각 VP와 코어 VP 합산 시 소수점 1자리로 안전하게 합산
+            const totalAddVp = Math.round((addVpFromCores + (reqFrags / 10)) * 10) / 10;
             
             if(reqFrags > 0) {
                 PlayerData.items['Item_010'] -= reqFrags;
@@ -539,7 +538,6 @@ export function initCoreUI() {
             }
             
             if(enhanceCoreOption(enhancingCoreUid, enhancingSlotIndex, totalAddVp)) {
-                // DON'T CLOSE MODAL! Re-render background and re-open modal with new data!
                 renderCoreList();
                 renderCoreDetail();
                 
@@ -556,12 +554,13 @@ export function initCoreUI() {
         document.querySelectorAll("#enhance-material-list .material-checkbox:checked").forEach(cb => {
             addVpFromCores += parseInt(cb.getAttribute("data-vp") || 0);
         });
-        const neededVp = Math.max(0, enhancingTargetVp - enhancingCurrentVp - addVpFromCores);
-        const maxNeededFrags = neededVp * 10;
+        
+        // [수정] 조각 개수 계산 시 소수점 오차 방지
+        const neededVp = Math.max(0, Math.round((enhancingTargetVp - enhancingCurrentVp - addVpFromCores) * 10) / 10);
+        const maxNeededFrags = Math.round(neededVp * 10);
         
         if (amount === 'MAX') {
             enhancingReqFrags = Math.min(myFrags, maxNeededFrags);
-            
         } else if (amount === 'RESET') {
             enhancingReqFrags = 0;
         } else {
