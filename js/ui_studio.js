@@ -626,6 +626,7 @@ function tickStudio(dtSeconds) {
   // Recovers at 50% of the rest slot recovery rate
   const deployedChars = new Set();
   STUDIO_TYPES.forEach(t => {
+    if (t.isMgmt) return; // ★ 이 줄 추가 (매니지먼트 슬롯을 미배치 캐릭터 회복 대상에 포함)
     const ts = PlayerData.studio && PlayerData.studio[t.id];
     if (ts) {
       if (ts.active) ts.active.forEach(c => { if (c) deployedChars.add(c); });
@@ -891,10 +892,16 @@ function showCharTooltip(charId, studioId, slotType) {
     if (char.Character_Tier === 'SSR') tierVal = 3;
     const totalStep = Math.min(6, tierVal + starVal);
 
+    // ★ 미배치 회복 속도 계산 추가
+    let selfRecoverBoost = (window.getCharMSkillEffect ? window.getCharMSkillEffect(charId, 'Self_Cond_Recover', 'ALL') : 0);
+    let actualRecoverPerMin = (getMgmtARate() + selfRecoverBoost) * 0.5;
+    const rateH = (actualRecoverPerMin * 60).toFixed(1);
+    condRateHtml = `매니지먼트 근무 (미배치 회복): <span style="color:#2ecc71;">+${rateH}</span>`;
+
     if (studioId === 'mgmtA') {
       const buffA = [0.20, 0.22, 0.24, 0.26, 0.28, 0.30, 0.32];
       const stepVal = buffA[totalStep];
-      condRateHtml = '매니지먼트 배치는 컨디션을 소모하지 않습니다.';
+      // 기존 condRateHtml 고정 문구는 위에서 계산식으로 대체되어 삭제
       prodHtml = `
         성급 보너스 : ${starVal}단계<br>
         티어 보너스 : ${tierVal}단계<br>
@@ -905,7 +912,7 @@ function showCharTooltip(charId, studioId, slotType) {
     } else {
       const buffB = [1.00, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70];
       const stepVal = buffB[totalStep];
-      condRateHtml = '매니지먼트 배치는 컨디션을 소모하지 않습니다.';
+      // 기존 condRateHtml 고정 문구는 위에서 계산식으로 대체되어 삭제
       prodHtml = `
         성급 보너스 : ${starVal}단계<br>
         티어 보너스 : ${tierVal}단계<br>
