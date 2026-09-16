@@ -289,6 +289,8 @@ export const SKILL_MASTERY_BONUS = {
 
 /**
  * Applies skill mastery bonuses (Multiplier & Overheat) to a skill definition.
+ * - Act1_Multiplier와 Act2_Multiplier가 1 이상일 때만 bonus.mult를 각각 가산합니다.
+ * - 설명문(Skill_Desc) 내의 해당 퍼센트(%) 수치도 찾아 교체합니다.
  */
 export function applyMasteryToSkill(origSkill, masteryLevel = 0) {
   if (!origSkill || !masteryLevel || masteryLevel <= 0) return origSkill;
@@ -299,34 +301,53 @@ export function applyMasteryToSkill(origSkill, masteryLevel = 0) {
   if (!bonus.mult && !bonus.oh) return origSkill;
 
   const clone = { ...origSkill };
-  const baseMult = Number(origSkill.Skill_Multiplier) || 0;
 
-  // 1. 계수(Multiplier) 수치 반영
-  if (bonus.mult) {
-    clone.Skill_Multiplier = baseMult + bonus.mult;
-  }
-
-  // 2. 오버히트(Overheat) 수치 반영
+  // 1. 오버히트 감소 반영
   if (bonus.oh) {
     clone.Skill_Overheat = (Number(origSkill.Skill_Overheat) || 0) + bonus.oh;
   }
 
-  clone._masteryBonus = { level: masteryLevel, type: mType, mult: bonus.mult, oh: bonus.oh };
+  // 2. Act1_Multiplier / Act2_Multiplier 반영 (1 이상인 경우에만 가산)
+  if (bonus.mult) {
+    const act1Val = Number(origSkill.Act1_Multiplier) || 0;
+    const act2Val = Number(origSkill.Act2_Multiplier) || 0;
+    let desc = origSkill.Skill_Desc || '';
 
-  // 3. 카드 및 스킬 텍스트(Skill_Desc) 내 계수 수치 자동 갱신
-  if (origSkill.Skill_Desc) {
-    let desc = origSkill.Skill_Desc;
-    if (baseMult > 0 && bonus.mult) {
-      const newMult = baseMult + bonus.mult;
-      // 설명문 안의 "120%" 형태를 찾아 "123%" 처럼 숙련도가 더해진 수치로 치환 (\b로 20%가 120%의 뒷자리를 건드리지 않도록 방지)
-      const regex = new RegExp(`\\b${baseMult}\\s*%`, 'g');
-      if (regex.test(desc)) {
-        desc = desc.replace(regex, `${newMult}%`);
+    // Act1 계수 반영
+    if (act1Val >= 1) {
+      const newAct1 = act1Val + bonus.mult;
+      clone.Act1_Multiplier = newAct1;
+      clone.Skill_Multiplier = newAct1; // 레거시/기본 계수 호환
+
+      // 설명문 내 Act1 계수 % 치환 (예: 120% -> 123%)
+      const regex1 = new RegExp(`(\\b|[^0-9.])${act1Val}(\\s*%)`, 'g');
+      desc = desc.replace(regex1, `$1${newAct1}$2`);
+    }
+
+    // Act2 계수 반영
+    if (act2Val >= 1) {
+      const newAct2 = act2Val + bonus.mult;
+      clone.Act2_Multiplier = newAct2;
+
+      // Act1과 수치가 다른 경우에만 독립 치환 (중복 치환 방지)
+      if (act2Val !== act1Val) {
+        const regex2 = new RegExp(`(\\b|[^0-9.])${act2Val}(\\s*%)`, 'g');
+        desc = desc.replace(regex2, `$1${newAct2}$2`);
       }
     }
+
+    // act1, act2 객체가 이미 구조화되어 있는 경우 필드 동기화
+    if (clone.act1 && typeof clone.act1 === 'object') {
+      clone.act1.multiplier = clone.Act1_Multiplier;
+    }
+    if (clone.act2 && typeof clone.act2 === 'object') {
+      clone.act2.multiplier = clone.Act2_Multiplier;
+    }
+
     clone.Skill_Desc = desc;
   }
 
+  clone._masteryBonus = { level: masteryLevel, type: mType, mult: bonus.mult, oh: bonus.oh };
   return clone;
 }
 
