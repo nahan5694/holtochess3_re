@@ -787,7 +787,8 @@ export class BattleEngine {
     }
     const prefix = `Act${actNum}_`;
     if (skillData[`${prefix}Type`]) {
-      const cleanKw = (raw) => String(raw || '').replace(/^[tsaeTSAE]_/, '').trim();
+      const rawK1 = skillData[`${prefix}Key_1_ID`];
+      const rawK2 = skillData[`${prefix}Key_2_ID`];
       return {
         type: skillData[`${prefix}Type`],
         target: skillData[`${prefix}Target`],
@@ -797,10 +798,10 @@ export class BattleEngine {
         calc: skillData[`${prefix}Calc_Base`] || '공격력',
         multiplier: Number(skillData[`${prefix}Multiplier`]) || 0,
         breakDmg: Number(skillData[`${prefix}Break`]) || 0,
-        k1Id: cleanKw(skillData[`${prefix}Key_1_ID`]),
+        k1Id: rawK1 ? String(rawK1).trim() : null,
         k1V1: skillData[`${prefix}Key_1_Val1`],
         k1V2: skillData[`${prefix}Key_1_Val2`],
-        k2Id: cleanKw(skillData[`${prefix}Key_2_ID`]),
+        k2Id: rawK2 ? String(rawK2).trim() : null,
         k2V1: skillData[`${prefix}Key_2_Val1`],
         k2V2: skillData[`${prefix}Key_2_Val2`]
       };
@@ -811,23 +812,44 @@ export class BattleEngine {
   /**
    * Applies a single keyword status to a target character
    */
-  _applyActionKeyword(t, attacker, team, opponentTeam, kwId, val1, val2) {
-    if (!t || t.isDead || t.hp <= 0 || !kwId) return;
-    const cleanId = String(kwId).replace(/^[tsaeTSAE]_/, '').trim();
-    const kw = this.keywordsMasterMap[cleanId] || this.keywordsMasterMap[kwId] || {
+  _applyActionKeyword(t, attacker, team, opponentTeam, kwId, val1, val2, card = null) {
+    if (!kwId) return;
+    const rawStr = String(kwId).trim();
+    const cleanId = rawStr.replace(/^[tsaeTSAE]_/, '').trim();
+    const kw = this.keywordsMasterMap[cleanId] || this.keywordsMasterMap[rawStr] || {
       Keyword_ID: cleanId,
       Keyword_Name: cleanId,
       Keyword_Type: '버프'
     };
+
+    // 타깃 자동 분기 (S_ 접두사 우선, 없으면 스킬 설명의 '자신에게' 감지)
+    let recipient = t;
+    const desc = String(card?.rawSkill?.Skill_Desc || card?.skillData?.Skill_Desc || '');
+    const kwName = kw.Keyword_Name || cleanId;
+
+    if (/^[sS]_/.test(rawStr)) {
+      recipient = attacker;
+    } else if (/^[tT]_/.test(rawStr)) {
+      recipient = t;
+    } else if (desc) {
+      const clauses = desc.split(/[.?!]+|\s+혹은\s+|\s*(?:하고|하며)\s+(?=적|아군|자신)/);
+      const matchedClause = clauses.find(c => c.includes(kwName));
+      if (matchedClause && (matchedClause.includes('자신에게') || matchedClause.includes('자신이') || matchedClause.includes('자신의'))) {
+        recipient = attacker;
+      }
+    }
+
+    if (!recipient || recipient.isDead || recipient.hp <= 0) return;
+
     const s1 = Number(val1) || 1;
     const s2 = Number(val2) || 1;
-    const statusRes = applyStatus(t, kw, s1, s2, { caster: attacker, attacker, team, opponentTeam, rng: this.rng });
+    const statusRes = applyStatus(recipient, kw, s1, s2, { caster: attacker, attacker, team, opponentTeam, rng: this.rng });
     if (statusRes && statusRes.isPurify) {
-      this.log(`💠 [정화 발동] ${t.name}의 상단 디버프 ${statusRes.clearedCount}개 완전 제거!`);
-      this.emit('status_cleansed', { caster: attacker, target: t, clearedCount: statusRes.clearedCount, keyword: kw });
+      this.log(`💠 [정화 발동] ${recipient.name}의 상단 디버프 ${statusRes.clearedCount}개 완전 제거!`);
+      this.emit('status_cleansed', { caster: attacker, target: recipient, clearedCount: statusRes.clearedCount, keyword: kw });
     } else if (statusRes) {
-      this.log(`상태 부여 [${kw.Keyword_Name || cleanId}] ${statusRes.stack} (${statusRes.duration}턴) -> ${t.name}`);
-      this.emit('status_applied', { caster: attacker, target: t, keyword: kw, stack: statusRes.stack, duration: statusRes.duration });
+      this.log(`상태 부여 [${kw.Keyword_Name || cleanId}] ${statusRes.stack} (${statusRes.duration}턴) -> ${recipient.name}`);
+      this.emit('status_applied', { caster: attacker, target: recipient, keyword: kw, stack: statusRes.stack, duration: statusRes.duration });
     }
   }
 
@@ -900,9 +922,104 @@ export class BattleEngine {
     const mult = Number(actionData.multiplier) || 0;
     const baseStatName = actionData.calc;
 
+    /**
+   * Executes a single normalized action (Act1 or Act2)
+   */
+  _executeSingleAction({ team, opponentTeam, attacker, card, actionData, manualTarget, executionContext }) {
+    if (!actionData || actionData.type === 'NONE') return;
+
+    let targetPool;
+    const tgt = actionData.target;
+    const isActionManual = (actionData.method === '수동' || actionData.method === 'MANUAL') ||
+      (card && (card.targetMethod === 'MANUAL' || card.targetMode === 'MANUAL') && actionData.method !== '자동' && actionData.method !== '어그로');
+    let effectiveTargetMethod = isActionManual ? 'MANUAL' : 'AUTO';
+    let effectiveManualTarget = isActionManual ? (manualTarget?.characterId || manualTarget) : null;
+
+    if (tgt === '자신' || tgt === 'SELF') {
+      targetPool = attacker && !attacker.isDead && attacker.hp > 0 ? [attacker] : [];
+      effectiveManualTarget = attacker ? attacker.characterId : null;
+      effectiveTargetMethod = 'MANUAL';
+    } else if (tgt === '자신_중심_아군') {
+      targetPool = team.characters;
+      effectiveManualTarget = attacker ? attacker.characterId : null;
+      effectiveTargetMethod = 'MANUAL';
+    } else if (tgt === '아군' || tgt === '무작위_아군' || tgt === '아군_전체' || tgt === '최저체력_아군' || tgt === 'ALLY') {
+      targetPool = team.characters;
+    } else {
+      targetPool = opponentTeam.characters;
+    }
+
+    let targets = [];
+    if (tgt === '자신' || tgt === 'SELF') {
+      targets = targetPool;
+    } else if (tgt === '아군_전체' || tgt === 'ALL_ALLIES') {
+      targets = team.characters.filter(c => !c.isDead && c.hp > 0);
+    } else if (tgt === '적_전체' || tgt === 'ALL_ENEMIES') {
+      targets = opponentTeam.characters.filter(c => !c.isDead && c.hp > 0);
+    } else if (tgt === '최저체력_아군') {
+      const sorted = [...team.characters].filter(c => !c.isDead && c.hp > 0).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+      targets = sorted.slice(0, actionData.count || 1);
+    } else {
+      let chosenTargetId = (effectiveTargetMethod === 'MANUAL') ? effectiveManualTarget : null;
+      if (effectiveTargetMethod === 'MANUAL' && chosenTargetId) {
+        const charId = (typeof chosenTargetId === 'object' && chosenTargetId !== null)
+          ? (chosenTargetId.characterId || chosenTargetId.id)
+          : chosenTargetId;
+        chosenTargetId = charId;
+        const char = this.getCharacterById(chosenTargetId);
+        const isTargetingAlly = (tgt === '아군' || tgt === '자신_중심_아군');
+        if (char) {
+          const isCharAlly = (char.teamId === team.teamId);
+          if (isTargetingAlly !== isCharAlly) {
+            chosenTargetId = null;
+          }
+        }
+      }
+
+      targets = resolveTargets({
+        candidatePool: targetPool,
+        targetMethod: effectiveTargetMethod,
+        manualTarget: chosenTargetId,
+        targetCount: actionData.count || 1,
+        range: actionData.range || 'SINGLE',
+        rng: this.rng
+      });
+    }
+
+    if (!targets || targets.length === 0) return;
+
+    const mult = Number(actionData.multiplier) || 0;
+    const baseStatName = actionData.calc;
+
+    // 키워드가 시전자(자신) 대상인지 판별하는 헬퍼
+    const isSelfKeyword = (kwId) => {
+      if (!kwId) return false;
+      const raw = String(kwId).trim();
+      if (/^[sS]_/.test(raw)) return true;
+      if (/^[tT]_/.test(raw)) return false;
+      const desc = String(card?.rawSkill?.Skill_Desc || card?.skillData?.Skill_Desc || '');
+      if (!desc) return false;
+      const clean = raw.replace(/^[tsaeTSAE]_/, '').trim();
+      const kw = this.keywordsMasterMap[clean] || this.keywordsMasterMap[raw];
+      const name = kw?.Keyword_Name || clean;
+      const clauses = desc.split(/[.?!]+|\s+혹은\s+|\s*(?:하고|하며)\s+(?=적|아군|자신)/);
+      const matched = clauses.find(c => c.includes(name));
+      return Boolean(matched && (matched.includes('자신에게') || matched.includes('자신이') || matched.includes('자신의')));
+    };
+
     for (let tIdx = 0; tIdx < targets.length; tIdx++) {
       const target = targets[tIdx];
       if (target.isDead || target.hp <= 0) continue;
+
+      // 1. 시전자 대상 버프는 액션 개시 시점(첫 타깃 루프 시작 시)에 1회만 부여
+      if (tIdx === 0) {
+        if (actionData.k1Id && isSelfKeyword(actionData.k1Id)) {
+          this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k1Id, actionData.k1V1, actionData.k1V2, card);
+        }
+        if (actionData.k2Id && isSelfKeyword(actionData.k2Id)) {
+          this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k2Id, actionData.k2V1, actionData.k2V2, card);
+        }
+      }
 
       if (actionData.type === 'DAMAGE_PHYS' || actionData.type === 'DAMAGE_MAGIC') {
         if (attacker) target.lastAttacker = attacker;
@@ -920,7 +1037,16 @@ export class BattleEngine {
           hasDealtBreakThisSkill: hasDealtBreak,
           isUltimate: (card.cardType === CardType.ULTIMATE),
           rng: this.rng,
-          team
+          team,
+          // 명중(Hit) 확정 시점에만 타깃 대상 디버프 부여 (회피 시 부여되지 않아 5슬롯 보존)
+          onHit: () => {
+            if (actionData.k1Id && !isSelfKeyword(actionData.k1Id)) {
+              this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k1Id, actionData.k1V1, actionData.k1V2, card);
+            }
+            if (actionData.k2Id && !isSelfKeyword(actionData.k2Id)) {
+              this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k2Id, actionData.k2V1, actionData.k2V2, card);
+            }
+          }
         });
 
         if (executionContext) {
@@ -965,6 +1091,13 @@ export class BattleEngine {
           continue;
         }
       } else if (actionData.type === 'SHIELD') {
+        if (actionData.k1Id && !isSelfKeyword(actionData.k1Id)) {
+          this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k1Id, actionData.k1V1, actionData.k1V2, card);
+        }
+        if (actionData.k2Id && !isSelfKeyword(actionData.k2Id)) {
+          this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k2Id, actionData.k2V1, actionData.k2V2, card);
+        }
+
         const baseStat = (baseStatName === '최대체력' || baseStatName === '타깃_최대체력')
           ? (target.maxHp || 1000)
           : (baseStatName === '공격력')
@@ -975,6 +1108,13 @@ export class BattleEngine {
         this.log(`보호막 부여 -> ${target.name}: +${shieldAmount} 쉴드`);
         this.emit('shield_applied', { caster: attacker, target, amount: shieldAmount });
       } else if (actionData.type === 'HEAL') {
+        if (actionData.k1Id && !isSelfKeyword(actionData.k1Id)) {
+          this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k1Id, actionData.k1V1, actionData.k1V2, card);
+        }
+        if (actionData.k2Id && !isSelfKeyword(actionData.k2Id)) {
+          this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k2Id, actionData.k2V1, actionData.k2V2, card);
+        }
+
         const baseStat = (baseStatName === '최대체력' || baseStatName === '타깃_최대체력')
           ? (target.maxHp || 1000)
           : (baseStatName === '공격력')
@@ -984,13 +1124,13 @@ export class BattleEngine {
         const healed = applyHealing({ target, amount: healAmount });
         this.log(`체력 회복 -> ${target.name}: +${healed} HP [현재 HP: ${target.hp}/${target.maxHp}]`);
         this.emit('heal', { caster: attacker, target, amount: healed });
-      }
-
-      if (actionData.k1Id) {
-        this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k1Id, actionData.k1V1, actionData.k1V2);
-      }
-      if (actionData.k2Id) {
-        this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k2Id, actionData.k2V1, actionData.k2V2);
+      } else {
+        if (actionData.k1Id && !isSelfKeyword(actionData.k1Id)) {
+          this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k1Id, actionData.k1V1, actionData.k1V2, card);
+        }
+        if (actionData.k2Id && !isSelfKeyword(actionData.k2Id)) {
+          this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k2Id, actionData.k2V1, actionData.k2V2, card);
+        }
       }
     }
   }
