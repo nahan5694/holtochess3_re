@@ -2629,14 +2629,16 @@ export function renderHoloMemList(isOwnedScene = true) {
       const typeBadgeHtml = typeIcon ? `<div class="holomem-card-type-badge"><img src="${typeIcon}" alt="${char.Character_Type}"></div>` : "";
 
       let starBadgeHtml = "";
+      let bloomBadgeHtml = "";
       let levelHtml = "";
+
       if (isOwnedScene) {
         let starIconUrl = 'https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/icon/Star_icon.png';
         if (GameData && GameData.assets) {
           const assetObj = GameData.assets.find(a => a.Asset_ID === 'asset_010');
           if (assetObj && assetObj.Asset_Link) starIconUrl = assetObj.Asset_Link;
         }
-        const charStats = (PlayerData && PlayerData.characterStats && PlayerData.characterStats[char.Character_ID]) || { star: 1, level: 1 };
+        const charStats = (PlayerData && PlayerData.characterStats && PlayerData.characterStats[char.Character_ID]) || { star: 1, level: 1, bloom: 0 };
         const stars = Math.max(1, charStats.star || 1);
         let starsHtml = "";
         for(let i = 0; i < stars; i++) {
@@ -2647,6 +2649,16 @@ export function renderHoloMemList(isOwnedScene = true) {
             ${starsHtml}
           </div>
         `;
+
+        // 개화(Bloom) 뱃지 렌더링 (🌸0 ~ 🌸5)
+        const bloomLevel = Math.min(5, Math.max(0, charStats.bloom || 0));
+        const isMaxBloom = bloomLevel >= 5;
+        bloomBadgeHtml = `
+          <div style="position: absolute; top: -8px; left: 44px; z-index: 10; display: inline-flex; align-items: center; gap: 2px; background: rgba(15, 15, 25, 0.85); border: 1.5px solid ${isMaxBloom ? '#ff9ff3' : '#f368e0'}; border-radius: 999px; padding: 2px 7px 2px 5px; font-size: 0.75rem; font-weight: 900; color: #ffffff; box-shadow: 0 0 8px ${isMaxBloom ? 'rgba(255, 159, 243, 0.8)' : 'rgba(243, 104, 224, 0.55)'}, 0 2px 4px rgba(0,0,0,0.6); backdrop-filter: blur(3px); letter-spacing: -0.3px; text-shadow: 0 1px 2px rgba(0,0,0,0.9); pointer-events: none;">
+            <span style="font-size: 0.8rem; line-height: 1;">🌸</span><span>${bloomLevel}</span>
+          </div>
+        `;
+
         levelHtml = `<span class="holomem-card-level">Lv. ${charStats.level || 1}</span>`;
       } else {
         levelHtml = `<span class="holomem-card-level" style="font-weight: bold;">미보유</span>`;
@@ -2654,6 +2666,7 @@ export function renderHoloMemList(isOwnedScene = true) {
 
       card.innerHTML = `
         ${typeBadgeHtml}
+        ${bloomBadgeHtml}
         ${starBadgeHtml}
         <div class="holomem-card-inner">
           <img class="holomem-card-bg" src="${char.Character_Image_Full}" loading="lazy" style="object-fit: cover; object-position: center 20%;">
