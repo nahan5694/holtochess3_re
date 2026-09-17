@@ -1641,6 +1641,20 @@ window.openHelpModal = openHelpModal;
       if (typeof window.savePlayerData === 'function') {
         window.savePlayerData();
       }
+        } else if (code === "6969") {
+      if (!PlayerData.items) PlayerData.items = {};
+      PlayerData.items['Item_008'] = (PlayerData.items['Item_008'] || 0) + 1000;
+
+      inputDevCode.value = "";
+      alert("🎁 개발자 코드(6969) 보상이 지급되었습니다! (Item_008 +1000)");
+
+      updateTopCurrencies();
+      if (typeof window.renderWarehouseItems === 'function') {
+        window.renderWarehouseItems();
+      }
+      if (typeof window.savePlayerData === 'function') {
+        window.savePlayerData();
+      }
 
         } else if (code === "0002") {
       // 1. 중복 수령 검사
