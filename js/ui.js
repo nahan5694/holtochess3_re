@@ -3364,7 +3364,6 @@ export function updateCharInfoStats(char, level, star, isMyChar = false, hideGro
 
   // --- 성장 초기화 보라색 버튼 동적 생성 및 배치 ---
   let btnReset = document.getElementById('btn-growth-reset');
-  const bloomBadgeContainer = document.getElementById('bloom-badge-container');
 
   if (!btnReset) {
     btnReset = document.createElement('button');
