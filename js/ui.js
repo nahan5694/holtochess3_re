@@ -6100,45 +6100,53 @@ function bindKwDropdownEvents(isOwnedScene) {
 }
 
 function renderKwMenuOptions(menuEl, targetSlot, lockedEmoji, onSelect) {
-  let html = `
-    <div style="padding:5px 10px; font-size:0.75rem; font-weight:bold; color:#1d4ed8; background:#eff6ff; border-bottom:1px solid #dbeafe; display:flex; align-items:center; gap:4px;">
-      <span>🔼 버프</span>
-    </div>
-  `;
+  let html = `<div style="padding: 5px; display: flex; flex-direction: column; gap: 3px;">`;
 
+  // 버프 목록 (연한 하늘색/파란색 뱃지 배경)
   KEYWORD_BUFF_LIST.forEach(item => {
     const isLocked = (lockedEmoji && lockedEmoji === item.emoji);
     const label = `${item.emoji} ${item.name}`;
+    const bg = isLocked ? '#f1f5f9' : '#e0f2fe';
+    const color = isLocked ? '#94a3b8' : '#0369a1';
+    const border = isLocked ? '#e2e8f0' : '#bae6fd';
+
     html += `
-      <div class="kw-opt-item" data-emoji="${item.emoji}" data-label="${label}" style="padding:6px 12px; font-size:0.82rem; font-weight:bold; color:${isLocked ? '#94a3b8' : '#1e293b'}; cursor:${isLocked ? 'not-allowed' : 'pointer'}; opacity:${isLocked ? '0.35' : '1'}; background:${isLocked ? '#f8fafc' : '#fff'}; display:flex; align-items:center; justify-content:space-between; transition:background 0.15s;">
-        <span>${label}</span>
-        ${isLocked ? '<span style="font-size:0.68rem; color:#ef4444; font-weight:normal;">선택중</span>' : ''}
+      <div class="kw-opt-item" data-emoji="${item.emoji}" data-label="${label}" style="padding: 3px 4px; border-radius: 6px; cursor: ${isLocked ? 'not-allowed' : 'pointer'}; opacity: ${isLocked ? '0.4' : '1'}; display: flex; align-items: center; justify-content: space-between; transition: background 0.15s;">
+        <span style="background: ${bg}; color: ${color}; border: 1px solid ${border}; padding: 3px 9px; border-radius: 6px; font-size: 0.82rem; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
+          ${label}
+        </span>
+        ${isLocked ? '<span style="font-size: 0.68rem; color: #ef4444; font-weight: bold; margin-right: 4px;">선택중</span>' : ''}
       </div>
     `;
   });
 
-  html += `
-    <div style="padding:5px 10px; font-size:0.75rem; font-weight:bold; color:#b91c1c; background:#fef2f2; border-top:1px solid #fee2e2; border-bottom:1px solid #fee2e2; display:flex; align-items:center; gap:4px; margin-top:3px;">
-      <span>🔻 디버프</span>
-    </div>
-  `;
+  // 깔끔한 구분선
+  html += `<div style="height: 1px; background: #e2e8f0; margin: 4px 4px;"></div>`;
 
+  // 디버프 목록 (연한 빨간색/분홍색 뱃지 배경)
   KEYWORD_DEBUFF_LIST.forEach(item => {
     const isLocked = (lockedEmoji && lockedEmoji === item.emoji);
     const label = `${item.emoji} ${item.name}`;
+    const bg = isLocked ? '#f1f5f9' : '#fee2e2';
+    const color = isLocked ? '#94a3b8' : '#b91c1c';
+    const border = isLocked ? '#e2e8f0' : '#fecaca';
+
     html += `
-      <div class="kw-opt-item" data-emoji="${item.emoji}" data-label="${label}" style="padding:6px 12px; font-size:0.82rem; font-weight:bold; color:${isLocked ? '#94a3b8' : '#1e293b'}; cursor:${isLocked ? 'not-allowed' : 'pointer'}; opacity:${isLocked ? '0.35' : '1'}; background:${isLocked ? '#f8fafc' : '#fff'}; display:flex; align-items:center; justify-content:space-between; transition:background 0.15s;">
-        <span>${label}</span>
-        ${isLocked ? '<span style="font-size:0.68rem; color:#ef4444; font-weight:normal;">선택중</span>' : ''}
+      <div class="kw-opt-item" data-emoji="${item.emoji}" data-label="${label}" style="padding: 3px 4px; border-radius: 6px; cursor: ${isLocked ? 'not-allowed' : 'pointer'}; opacity: ${isLocked ? '0.4' : '1'}; display: flex; align-items: center; justify-content: space-between; transition: background 0.15s;">
+        <span style="background: ${bg}; color: ${color}; border: 1px solid ${border}; padding: 3px 9px; border-radius: 6px; font-size: 0.82rem; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
+          ${label}
+        </span>
+        ${isLocked ? '<span style="font-size: 0.68rem; color: #ef4444; font-weight: bold; margin-right: 4px;">선택중</span>' : ''}
       </div>
     `;
   });
 
+  html += `</div>`;
   menuEl.innerHTML = html;
 
   menuEl.querySelectorAll('.kw-opt-item').forEach(el => {
-    el.onmouseover = () => { if (el.style.cursor !== 'not-allowed') el.style.background = '#f1f5f9'; };
-    el.onmouseout = () => { if (el.style.cursor !== 'not-allowed') el.style.background = '#fff'; };
+    el.onmouseover = () => { if (el.style.cursor !== 'not-allowed') el.style.background = '#f8fafc'; };
+    el.onmouseout = () => { if (el.style.cursor !== 'not-allowed') el.style.background = 'transparent'; };
     el.onclick = (e) => {
       e.stopPropagation();
       if (el.style.cursor === 'not-allowed') return;
@@ -6154,25 +6162,35 @@ function updateKwFilterUI(isOwnedScene) {
   if (!wrapper) return;
 
   const allKeywords = [...KEYWORD_BUFF_LIST, ...KEYWORD_DEBUFF_LIST];
-  const getLabel = (emoji, defaultText) => {
-    if (!emoji) return defaultText;
-    const found = allKeywords.find(k => k.emoji === emoji);
-    return found ? `${found.emoji} ${found.name}` : emoji;
+  const isBuff = (emoji) => KEYWORD_BUFF_LIST.some(b => b.emoji === emoji);
+
+  const styleDropdownBtn = (slotId, selectedEmoji, defaultText) => {
+    const dd = document.getElementById(`${slotId}-dd-${prefix}`);
+    if (!dd) return;
+    const btn = dd.querySelector('.kw-dropdown-btn');
+    const lbl = dd.querySelector('.kw-label');
+    if (!btn || !lbl) return;
+
+    if (selectedEmoji) {
+      const found = allKeywords.find(k => k.emoji === selectedEmoji);
+      const text = found ? `${found.emoji} ${found.name}` : selectedEmoji;
+      const buff = isBuff(selectedEmoji);
+
+      lbl.innerHTML = `
+        <span style="background: ${buff ? '#e0f2fe' : '#fee2e2'}; color: ${buff ? '#0369a1' : '#b91c1c'}; border: 1px solid ${buff ? '#bae6fd' : '#fecaca'}; padding: 1px 6px; border-radius: 4px; font-weight: 800;">
+          ${text}
+        </span>
+      `;
+      btn.style.borderColor = buff ? '#0284c7' : '#ef4444';
+    } else {
+      lbl.textContent = defaultText;
+      lbl.style.color = '#2c3e50';
+      btn.style.borderColor = '#3498db';
+    }
   };
 
-  const dd1 = document.getElementById(`kw1-dd-${prefix}`);
-  if (dd1) {
-    const lbl = dd1.querySelector('.kw-label');
-    if (lbl) lbl.textContent = getLabel(filterState.kw1, '키워드 1');
-    dd1.querySelector('.kw-dropdown-btn').style.borderColor = filterState.kw1 ? '#2563eb' : '#3498db';
-  }
-
-  const dd2 = document.getElementById(`kw2-dd-${prefix}`);
-  if (dd2) {
-    const lbl = dd2.querySelector('.kw-label');
-    if (lbl) lbl.textContent = getLabel(filterState.kw2, '키워드 2');
-    dd2.querySelector('.kw-dropdown-btn').style.borderColor = filterState.kw2 ? '#2563eb' : '#3498db';
-  }
+  styleDropdownBtn('kw1', filterState.kw1, '키워드 1');
+  styleDropdownBtn('kw2', filterState.kw2, '키워드 2');
 
   const r1 = wrapper.querySelector('.kw-reset-1');
   if (r1) {
