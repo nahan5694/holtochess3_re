@@ -1782,12 +1782,14 @@ window.openHelpModal = openHelpModal;
           currentSortMode = 'default';
           const lbl = document.getElementById('holomem-sort-label');
           if (lbl) lbl.textContent = "기본 정렬";
+          resetKwFilters(true);
           renderHoloMemList(true);
       }
       if (targetId === "scene-unowned") {
           currentSortMode = 'default';
           const lbl = document.getElementById('unowned-sort-label');
           if (lbl) lbl.textContent = "기본 정렬";
+          resetKwFilters(false);
           renderHoloMemList(false);
       }
       if (targetId === "scene-8") renderWarehouseList();
@@ -2505,12 +2507,34 @@ export function renderHoloMemList(isOwnedScene = true) {
     }
   });
 
+  // 키워드 1 & 2 드롭다운 선택값 가져오기
+  const activeKw1 = isOwnedScene ? currentKwFilterOwned.kw1 : currentKwFilterUnowned.kw1;
+  const activeKw2 = isOwnedScene ? currentKwFilterOwned.kw2 : currentKwFilterUnowned.kw2;
+  const isKwActive = Boolean(activeKw1 || activeKw2);
+
+  const hasKeyword = (char, targetEmoji) => {
+    if (!targetEmoji) return true;
+    const charKws = [
+      char.Character_Keyword_1,
+      char.Character_Keyword_2,
+      char.Character_Keyword_3,
+      char.Character_Keyword_4
+    ].filter(Boolean).map(k => String(k).trim());
+    return charKws.some(k => k === targetEmoji || k.includes(targetEmoji));
+  };
+
   const filteredChars = chars.filter(char => {
     if (!char.Character_ID || !char.Character_Name) return false;
     if (String(char.Character_Gacha).trim() === "0") return false;
     
     const isOwned = PlayerData.characters.includes(char.Character_ID);
-    return isOwnedScene ? isOwned : !isOwned;
+    const sceneMatch = isOwnedScene ? isOwned : !isOwned;
+    if (!sceneMatch) return false;
+
+    // 키워드 AND 조건 필터링
+    if (activeKw1 && !hasKeyword(char, activeKw1)) return false;
+    if (activeKw2 && !hasKeyword(char, activeKw2)) return false;
+    return true;
   });
 
   if (!isOwnedScene && currentSortMode === "level") {
@@ -2518,6 +2542,54 @@ export function renderHoloMemList(isOwnedScene = true) {
   }
 
   const sortedChars = [...filteredChars].sort((a, b) => {
+    const statA = (isOwnedScene && PlayerData && PlayerData.characterStats && PlayerData.characterStats[a.Character_ID]) || { star: 1, level: 1 };
+    const statB = (isOwnedScene && PlayerData && PlayerData.characterStats && PlayerData.characterStats[b.Character_ID]) || { star: 1, level: 1 };
+    const lvlA = isOwnedScene ? statA.level : (a._demoLevel || 1);
+    const lvlB = isOwnedScene ? statB.level : (b._demoLevel || 1);
+    const starA = isOwnedScene ? statA.star : 3;
+    const starB = isOwnedScene ? statB.star : 3;
+    
+    const levelSort = () => {
+        if (lvlB !== lvlA) return lvlB - lvlA;
+        const tierWeights = { "SSR": 3, "SR": 2, "R": 1, "N": 0 };
+        const tierA = tierWeights[a.Character_Tier] || 0;
+        const tierB = tierWeights[b.Character_Tier] || 0;
+        if (tierA !== tierB) return tierB - tierA;
+        return (a.Character_ID || "").localeCompare(b.Character_ID || "");
+    };
+    
+    const defaultSort = () => {
+        const tierWeights = { "SSR": 3, "SR": 2, "R": 1, "N": 0 };
+        const tierA = tierWeights[a.Character_Tier] || 0;
+        const tierB = tierWeights[b.Character_Tier] || 0;
+        if (tierA !== tierB) return tierB - tierA;
+        if (lvlB !== lvlA) return lvlB - lvlA;
+        return (a.Character_ID || "").localeCompare(b.Character_ID || "");
+    };
+
+    // 키워드 필터 활성화 시 항상 SSR/SR/R 랭크별 레벨 내림차순 정렬
+    if (isKwActive) {
+      return defaultSort();
+    } else if (currentSortMode === "level") {
+      return levelSort();
+    } else if (currentSortMode === "type") {
+      const typeWeights = { "청초": 1, "게닌": 2, "쿨": 3, "아티스트": 4, "큐트": 5, "광기": 6, "에로": 7 };
+      const wA = typeWeights[a.Character_Type] || 99;
+      const wB = typeWeights[b.Character_Type] || 99;
+      if (wA !== wB) return wA - wB;
+      return defaultSort();
+    } else if (currentSortMode === "class") {
+      const clsA = (a.Character_Role || "").split('/')[0].replace(/\s/g, "").trim();
+      const clsB = (b.Character_Role || "").split('/')[0].replace(/\s/g, "").trim();
+      const roleWeights = { "근거리딜러": 1, "원거리딜러": 2, "마법딜러": 3, "탱커": 4, "암살자": 5, "버퍼": 6, "디버퍼": 7, "힐러": 8 };
+      const wA = roleWeights[clsA] || 99;
+      const wB = roleWeights[clsB] || 99;
+      if (wA !== wB) return wA - wB;
+      return defaultSort();
+    } else {
+      return defaultSort();
+    }
+  });
     const statA = (isOwnedScene && PlayerData && PlayerData.characterStats && PlayerData.characterStats[a.Character_ID]) || { star: 1, level: 1 };
     const statB = (isOwnedScene && PlayerData && PlayerData.characterStats && PlayerData.characterStats[b.Character_ID]) || { star: 1, level: 1 };
     const lvlA = isOwnedScene ? statA.level : (a._demoLevel || 1);
@@ -5904,4 +5976,261 @@ function showGrowthResetResultModal(refunded) {
   `;
   resModal.style.display = 'flex';
   document.getElementById('btn-reset-result-close').onclick = () => resModal.style.display = 'none';
+}
+
+// =========================================
+// 키워드 2중 필터 시스템 (버프/디버프 AND 검색)
+// =========================================
+export const KEYWORD_BUFF_LIST = [
+  { emoji: "⚔️", name: "열정" },
+  { emoji: "⚜️", name: "청초" },
+  { emoji: "🛡️", name: "견고" },
+  { emoji: "⛓️", name: "의지" },
+  { emoji: "💚", name: "재생" },
+  { emoji: "🎯", name: "집중" },
+  { emoji: "💥", name: "강타" },
+  { emoji: "👁️‍🗨️", name: "은신" },
+  { emoji: "👅", name: "도발" },
+  { emoji: "⌛", name: "가속" },
+  { emoji: "🎶", name: "댄스" },
+  { emoji: "♻️", name: "반격" },
+  { emoji: "🎵", name: "리듬" },
+  { emoji: "🎼", name: "하모니" },
+  { emoji: "🧿", name: "증폭" },
+  { emoji: "💟", name: "흥분" },
+  { emoji: "💠", name: "정화" },
+  { emoji: "💎", name: "면역" }
+];
+
+export const KEYWORD_DEBUFF_LIST = [
+  { emoji: "🩸", name: "출혈" },
+  { emoji: "💔", name: "파괴" },
+  { emoji: "💋", name: "매료" },
+  { emoji: "🔥", name: "원소" },
+  { emoji: "❄️", name: "빙결" },
+  { emoji: "💦", name: "젖음" },
+  { emoji: "🎆", name: "흑마법" },
+  { emoji: "☢️", name: "중독" },
+  { emoji: "😁", name: "웃음" },
+  { emoji: "🦑", name: "잉크" },
+  { emoji: "🥂", name: "음주" },
+  { emoji: "🕸️", name: "압도" },
+  { emoji: "🌌", name: "행동불가" }
+];
+
+export let currentKwFilterOwned = { kw1: null, kw2: null };
+export let currentKwFilterUnowned = { kw1: null, kw2: null };
+
+export function resetKwFilters(isOwnedScene = true) {
+  if (isOwnedScene) {
+    currentKwFilterOwned = { kw1: null, kw2: null };
+  } else {
+    currentKwFilterUnowned = { kw1: null, kw2: null };
+  }
+  updateKwFilterUI(isOwnedScene);
+}
+
+export function initKeywordFilterUI(isOwnedScene = true) {
+  const sceneId = isOwnedScene ? "scene-5" : "scene-unowned";
+  const sceneEl = document.getElementById(sceneId);
+  if (!sceneEl) return;
+
+  const sortContainer = sceneEl.querySelector(".sort-dropdown-container");
+  if (!sortContainer) return;
+
+  let toolbar = sceneEl.querySelector(".char-list-top-toolbar");
+  if (!toolbar) {
+    toolbar = document.createElement("div");
+    toolbar.className = "char-list-top-toolbar";
+    toolbar.style.cssText = "position: absolute; top: 15px; left: 24px; display: flex; align-items: center; gap: 8px; z-index: 100;";
+    sortContainer.parentNode.insertBefore(toolbar, sortContainer);
+    toolbar.appendChild(sortContainer);
+    sortContainer.style.position = "static";
+  }
+
+  const wrapperId = isOwnedScene ? "kw-filter-wrapper-owned" : "kw-filter-wrapper-unowned";
+  let kwWrapper = document.getElementById(wrapperId);
+  if (!kwWrapper) {
+    kwWrapper = document.createElement("div");
+    kwWrapper.id = wrapperId;
+    kwWrapper.style.cssText = "display: flex; align-items: center; gap: 8px;";
+    kwWrapper.innerHTML = `
+      <!-- 키워드 1 드롭다운 -->
+      <div class="kw-dropdown-group" style="display:flex; align-items:center; gap:3px;">
+        <div class="kw-dropdown" id="${isOwnedScene ? 'kw1-dd-owned' : 'kw1-dd-unowned'}" style="position:relative;">
+          <div class="kw-dropdown-btn" style="background:#fff; border:1.5px solid #3498db; border-radius:6px; padding:5px 9px; font-size:0.83rem; font-weight:bold; color:#2c3e50; cursor:pointer; display:flex; align-items:center; gap:6px; min-width:105px; justify-content:space-between; box-shadow:0 2px 4px rgba(0,0,0,0.06);">
+            <span class="kw-label">키워드 1</span>
+            <span style="font-size:0.7rem; color:#7f8c8d;">▼</span>
+          </div>
+          <div class="kw-options-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; width:170px; max-height:380px; overflow-y:auto; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.18); z-index:1001; padding:4px 0;"></div>
+        </div>
+        <button class="kw-reset-btn kw-reset-1" title="키워드 1 초기화" style="width:24px; height:24px; border-radius:50%; border:1px solid #cbd5e1; background:#f8fafc; color:#94a3b8; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; opacity:0.3; pointer-events:none;">✕</button>
+      </div>
+
+      <!-- 키워드 2 드롭다운 -->
+      <div class="kw-dropdown-group" style="display:flex; align-items:center; gap:3px;">
+        <div class="kw-dropdown" id="${isOwnedScene ? 'kw2-dd-owned' : 'kw2-dd-unowned'}" style="position:relative;">
+          <div class="kw-dropdown-btn" style="background:#fff; border:1.5px solid #3498db; border-radius:6px; padding:5px 9px; font-size:0.83rem; font-weight:bold; color:#2c3e50; cursor:pointer; display:flex; align-items:center; gap:6px; min-width:105px; justify-content:space-between; box-shadow:0 2px 4px rgba(0,0,0,0.06);">
+            <span class="kw-label">키워드 2</span>
+            <span style="font-size:0.7rem; color:#7f8c8d;">▼</span>
+          </div>
+          <div class="kw-options-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; width:170px; max-height:380px; overflow-y:auto; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.18); z-index:1001; padding:4px 0;"></div>
+        </div>
+        <button class="kw-reset-btn kw-reset-2" title="키워드 2 초기화" style="width:24px; height:24px; border-radius:50%; border:1px solid #cbd5e1; background:#f8fafc; color:#94a3b8; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; opacity:0.3; pointer-events:none;">✕</button>
+      </div>
+    `;
+    toolbar.appendChild(kwWrapper);
+    bindKwDropdownEvents(isOwnedScene);
+  }
+}
+
+function bindKwDropdownEvents(isOwnedScene) {
+  const prefix = isOwnedScene ? 'owned' : 'unowned';
+  const filterState = isOwnedScene ? currentKwFilterOwned : currentKwFilterUnowned;
+
+  ['kw1', 'kw2'].forEach(slot => {
+    const dd = document.getElementById(`${slot}-dd-${prefix}`);
+    if (!dd) return;
+    const btn = dd.querySelector('.kw-dropdown-btn');
+    const menu = dd.querySelector('.kw-options-menu');
+    const otherSlot = slot === 'kw1' ? 'kw2' : 'kw1';
+
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.kw-options-menu').forEach(m => {
+        if (m !== menu) m.style.display = 'none';
+      });
+
+      const isOpen = menu.style.display === 'block';
+      if (isOpen) {
+        menu.style.display = 'none';
+      } else {
+        renderKwMenuOptions(menu, slot, filterState[otherSlot], (chosenEmoji, chosenLabel) => {
+          filterState[slot] = chosenEmoji;
+          menu.style.display = 'none';
+          updateKwFilterUI(isOwnedScene);
+          renderHoloMemList(isOwnedScene);
+        });
+        menu.style.display = 'block';
+      }
+    };
+  });
+
+  const wrapper = document.getElementById(isOwnedScene ? 'kw-filter-wrapper-owned' : 'kw-filter-wrapper-unowned');
+  if (wrapper) {
+    const r1 = wrapper.querySelector('.kw-reset-1');
+    if (r1) {
+      r1.onclick = () => {
+        filterState.kw1 = null;
+        updateKwFilterUI(isOwnedScene);
+        renderHoloMemList(isOwnedScene);
+      };
+    }
+    const r2 = wrapper.querySelector('.kw-reset-2');
+    if (r2) {
+      r2.onclick = () => {
+        filterState.kw2 = null;
+        updateKwFilterUI(isOwnedScene);
+        renderHoloMemList(isOwnedScene);
+      };
+    }
+  }
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.kw-options-menu').forEach(m => m.style.display = 'none');
+  });
+}
+
+function renderKwMenuOptions(menuEl, targetSlot, lockedEmoji, onSelect) {
+  let html = `
+    <div style="padding:5px 10px; font-size:0.75rem; font-weight:bold; color:#1d4ed8; background:#eff6ff; border-bottom:1px solid #dbeafe; display:flex; align-items:center; gap:4px;">
+      <span>🔼 버프</span>
+    </div>
+  `;
+
+  KEYWORD_BUFF_LIST.forEach(item => {
+    const isLocked = (lockedEmoji && lockedEmoji === item.emoji);
+    const label = `${item.emoji} ${item.name}`;
+    html += `
+      <div class="kw-opt-item" data-emoji="${item.emoji}" data-label="${label}" style="padding:6px 12px; font-size:0.82rem; font-weight:bold; color:${isLocked ? '#94a3b8' : '#1e293b'}; cursor:${isLocked ? 'not-allowed' : 'pointer'}; opacity:${isLocked ? '0.35' : '1'}; background:${isLocked ? '#f8fafc' : '#fff'}; display:flex; align-items:center; justify-content:space-between; transition:background 0.15s;">
+        <span>${label}</span>
+        ${isLocked ? '<span style="font-size:0.68rem; color:#ef4444; font-weight:normal;">선택중</span>' : ''}
+      </div>
+    `;
+  });
+
+  html += `
+    <div style="padding:5px 10px; font-size:0.75rem; font-weight:bold; color:#b91c1c; background:#fef2f2; border-top:1px solid #fee2e2; border-bottom:1px solid #fee2e2; display:flex; align-items:center; gap:4px; margin-top:3px;">
+      <span>🔻 디버프</span>
+    </div>
+  `;
+
+  KEYWORD_DEBUFF_LIST.forEach(item => {
+    const isLocked = (lockedEmoji && lockedEmoji === item.emoji);
+    const label = `${item.emoji} ${item.name}`;
+    html += `
+      <div class="kw-opt-item" data-emoji="${item.emoji}" data-label="${label}" style="padding:6px 12px; font-size:0.82rem; font-weight:bold; color:${isLocked ? '#94a3b8' : '#1e293b'}; cursor:${isLocked ? 'not-allowed' : 'pointer'}; opacity:${isLocked ? '0.35' : '1'}; background:${isLocked ? '#f8fafc' : '#fff'}; display:flex; align-items:center; justify-content:space-between; transition:background 0.15s;">
+        <span>${label}</span>
+        ${isLocked ? '<span style="font-size:0.68rem; color:#ef4444; font-weight:normal;">선택중</span>' : ''}
+      </div>
+    `;
+  });
+
+  menuEl.innerHTML = html;
+
+  menuEl.querySelectorAll('.kw-opt-item').forEach(el => {
+    el.onmouseover = () => { if (el.style.cursor !== 'not-allowed') el.style.background = '#f1f5f9'; };
+    el.onmouseout = () => { if (el.style.cursor !== 'not-allowed') el.style.background = '#fff'; };
+    el.onclick = (e) => {
+      e.stopPropagation();
+      if (el.style.cursor === 'not-allowed') return;
+      onSelect(el.dataset.emoji, el.dataset.label);
+    };
+  });
+}
+
+function updateKwFilterUI(isOwnedScene) {
+  const prefix = isOwnedScene ? 'owned' : 'unowned';
+  const filterState = isOwnedScene ? currentKwFilterOwned : currentKwFilterUnowned;
+  const wrapper = document.getElementById(isOwnedScene ? 'kw-filter-wrapper-owned' : 'kw-filter-wrapper-unowned');
+  if (!wrapper) return;
+
+  const allKeywords = [...KEYWORD_BUFF_LIST, ...KEYWORD_DEBUFF_LIST];
+  const getLabel = (emoji, defaultText) => {
+    if (!emoji) return defaultText;
+    const found = allKeywords.find(k => k.emoji === emoji);
+    return found ? `${found.emoji} ${found.name}` : emoji;
+  };
+
+  const dd1 = document.getElementById(`kw1-dd-${prefix}`);
+  if (dd1) {
+    const lbl = dd1.querySelector('.kw-label');
+    if (lbl) lbl.textContent = getLabel(filterState.kw1, '키워드 1');
+    dd1.querySelector('.kw-dropdown-btn').style.borderColor = filterState.kw1 ? '#2563eb' : '#3498db';
+  }
+
+  const dd2 = document.getElementById(`kw2-dd-${prefix}`);
+  if (dd2) {
+    const lbl = dd2.querySelector('.kw-label');
+    if (lbl) lbl.textContent = getLabel(filterState.kw2, '키워드 2');
+    dd2.querySelector('.kw-dropdown-btn').style.borderColor = filterState.kw2 ? '#2563eb' : '#3498db';
+  }
+
+  const r1 = wrapper.querySelector('.kw-reset-1');
+  if (r1) {
+    const on1 = Boolean(filterState.kw1);
+    r1.style.opacity = on1 ? '1' : '0.25';
+    r1.style.pointerEvents = on1 ? 'auto' : 'none';
+    r1.style.color = on1 ? '#ef4444' : '#94a3b8';
+    r1.style.borderColor = on1 ? '#f87171' : '#cbd5e1';
+  }
+
+  const r2 = wrapper.querySelector('.kw-reset-2');
+  if (r2) {
+    const on2 = Boolean(filterState.kw2);
+    r2.style.opacity = on2 ? '1' : '0.25';
+    r2.style.pointerEvents = on2 ? 'auto' : 'none';
+    r2.style.color = on2 ? '#ef4444' : '#94a3b8';
+    r2.style.borderColor = on2 ? '#f87171' : '#cbd5e1';
+  }
 }
