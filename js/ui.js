@@ -2492,6 +2492,9 @@ window.openHelpModal = openHelpModal;
 // Scene 5: Holomem List
 // =========================================
 export function renderHoloMemList(isOwnedScene = true) {
+  // [추가] 키워드 드롭다운 컨테이너 자동 생성/초기화
+  initKeywordFilterUI(isOwnedScene);
+
   const containerId = isOwnedScene ? "holomem-list-container" : "unowned-holomem-list-container";
   const container = document.getElementById(containerId);
   if (!container) return;
