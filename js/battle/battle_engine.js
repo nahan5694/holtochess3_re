@@ -853,76 +853,7 @@ export class BattleEngine {
     }
   }
 
-  /**
-   * Executes a single normalized action (Act1 or Act2)
-   */
-  _executeSingleAction({ team, opponentTeam, attacker, card, actionData, manualTarget, executionContext }) {
-    if (!actionData || actionData.type === 'NONE') return;
-
-    let targetPool;
-    const tgt = actionData.target;
-    const isActionManual = (actionData.method === '수동' || actionData.method === 'MANUAL') ||
-      (card && (card.targetMethod === 'MANUAL' || card.targetMode === 'MANUAL') && actionData.method !== '자동' && actionData.method !== '어그로');
-    let effectiveTargetMethod = isActionManual ? 'MANUAL' : 'AUTO';
-    let effectiveManualTarget = isActionManual ? (manualTarget?.characterId || manualTarget) : null;
-
-    if (tgt === '자신' || tgt === 'SELF') {
-      targetPool = attacker && !attacker.isDead && attacker.hp > 0 ? [attacker] : [];
-      effectiveManualTarget = attacker ? attacker.characterId : null;
-      effectiveTargetMethod = 'MANUAL';
-    } else if (tgt === '자신_중심_아군') {
-      targetPool = team.characters;
-      effectiveManualTarget = attacker ? attacker.characterId : null;
-      effectiveTargetMethod = 'MANUAL';
-    } else if (tgt === '아군' || tgt === '무작위_아군' || tgt === '아군_전체' || tgt === '최저체력_아군' || tgt === 'ALLY') {
-      targetPool = team.characters;
-    } else {
-      targetPool = opponentTeam.characters;
-    }
-
-    let targets = [];
-    if (tgt === '자신' || tgt === 'SELF') {
-      targets = targetPool;
-    } else if (tgt === '아군_전체' || tgt === 'ALL_ALLIES') {
-      targets = team.characters.filter(c => !c.isDead && c.hp > 0);
-    } else if (tgt === '적_전체' || tgt === 'ALL_ENEMIES') {
-      targets = opponentTeam.characters.filter(c => !c.isDead && c.hp > 0);
-    } else if (tgt === '최저체력_아군') {
-      const sorted = [...team.characters].filter(c => !c.isDead && c.hp > 0).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
-      targets = sorted.slice(0, actionData.count || 1);
-    } else {
-      let chosenTargetId = (effectiveTargetMethod === 'MANUAL') ? effectiveManualTarget : null;
-      if (effectiveTargetMethod === 'MANUAL' && chosenTargetId) {
-        const charId = (typeof chosenTargetId === 'object' && chosenTargetId !== null)
-          ? (chosenTargetId.characterId || chosenTargetId.id)
-          : chosenTargetId;
-        chosenTargetId = charId;
-        const char = this.getCharacterById(chosenTargetId);
-        const isTargetingAlly = (tgt === '아군' || tgt === '자신_중심_아군');
-        if (char) {
-          const isCharAlly = (char.teamId === team.teamId);
-          if (isTargetingAlly !== isCharAlly) {
-            chosenTargetId = null;
-          }
-        }
-      }
-
-      targets = resolveTargets({
-        candidatePool: targetPool,
-        targetMethod: effectiveTargetMethod,
-        manualTarget: chosenTargetId,
-        targetCount: actionData.count || 1,
-        range: actionData.range || 'SINGLE',
-        rng: this.rng
-      });
-    }
-
-    if (!targets || targets.length === 0) return;
-
-    const mult = Number(actionData.multiplier) || 0;
-    const baseStatName = actionData.calc;
-
-    /**
+/**
    * Executes a single normalized action (Act1 or Act2)
    */
   _executeSingleAction({ team, opponentTeam, attacker, card, actionData, manualTarget, executionContext }) {
@@ -1038,7 +969,7 @@ export class BattleEngine {
           isUltimate: (card.cardType === CardType.ULTIMATE),
           rng: this.rng,
           team,
-          // 명중(Hit) 확정 시점에만 타깃 대상 디버프 부여 (회피 시 부여되지 않아 5슬롯 보존)
+          // 명중(Hit) 확정 시점에만 타깃 대상 디버프 부여 (회피 시 미부여로 슬롯 보존)
           onHit: () => {
             if (actionData.k1Id && !isSelfKeyword(actionData.k1Id)) {
               this._applyActionKeyword(target, attacker, team, opponentTeam, actionData.k1Id, actionData.k1V1, actionData.k1V2, card);
