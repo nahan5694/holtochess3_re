@@ -5720,7 +5720,7 @@ export function openGrowthResetModal(char) {
   if (!confirmModal) {
     confirmModal = document.createElement('div');
     confirmModal.id = 'growth-reset-confirm-modal';
-    confirmModal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:9999; display:flex; align-items:center; justify-content:center;';
+    confirmModal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:100000; display:flex; align-items:center; justify-content:center;';
     document.body.appendChild(confirmModal);
   }
 
@@ -5873,7 +5873,7 @@ function showGrowthResetResultModal(refunded) {
   if (!resModal) {
     resModal = document.createElement('div');
     resModal.id = 'growth-reset-result-modal';
-    resModal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:10000; display:flex; align-items:center; justify-content:center;';
+    resModal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:100001; display:flex; align-items:center; justify-content:center;';
     document.body.appendChild(resModal);
   }
 
