@@ -307,7 +307,8 @@ export function calculateAndApplyDamage({
   damageModifiers = [],
   isUltimate = false,
   rng = null,
-  team = null
+  team = null,
+  onHit = null
 }) {
   const result = {
     isHit: true,
@@ -328,8 +329,8 @@ export function calculateAndApplyDamage({
   }
 
   // 1. Accuracy vs Evasion (Rule 37)
-  const attMods = extractCharacterCombatModifiers(attacker);
-  const tgtMods = extractCharacterCombatModifiers(target);
+  let attMods = extractCharacterCombatModifiers(attacker);
+  let tgtMods = extractCharacterCombatModifiers(target);
 
   let critBonusFromAccuracy = 0;
   const effectiveAcc = Math.max(0, (attacker.accuracy || 100) + attMods.accuracyBonus);
@@ -359,7 +360,7 @@ export function calculateAndApplyDamage({
           }
         }
 
-        return result; // Miss: 0 damage, no break, debuffs chained to attack fail
+        return result; // Miss: 키워드를 전혀 부여하지 않고 즉시 종료 (슬롯 보존)
       }
     } else if (finalAccuracy > 100) {
       // 50% of surplus converted to Critical Chance
@@ -370,6 +371,13 @@ export function calculateAndApplyDamage({
     if (effectiveAcc > 100) {
       critBonusFromAccuracy = (effectiveAcc - 100) * 0.5;
     }
+  }
+
+  // [명중 확정 시점] onHit 콜백 실행 후 변경된 디버프/버프 스탯을 최신화
+  if (typeof onHit === 'function') {
+    onHit({ attacker, target });
+    tgtMods = extractCharacterCombatModifiers(target);
+    attMods = extractCharacterCombatModifiers(attacker);
   }
 
   // 2. Base Raw Damage (Section 40, 41, 42)
