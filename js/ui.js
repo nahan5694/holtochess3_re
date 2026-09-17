@@ -5961,7 +5961,6 @@ function showGrowthResetResultModal(refunded) {
   resModal.style.display = 'flex';
   document.getElementById('btn-reset-result-close').onclick = () => resModal.style.display = 'none';
 }
-
 // =========================================
 // 키워드 2중 필터 시스템 (버프/디버프 AND 검색)
 // =========================================
@@ -6006,11 +6005,10 @@ export let currentKwFilterOwned = { kw1: null, kw2: null };
 export let currentKwFilterUnowned = { kw1: null, kw2: null };
 
 export function resetKwFilters(isOwnedScene = true) {
-  if (isOwnedScene) {
-    currentKwFilterOwned = { kw1: null, kw2: null };
-  } else {
-    currentKwFilterUnowned = { kw1: null, kw2: null };
-  }
+  // 새 객체 할당 대신 내부 프로퍼티만 초기화하여 참조 유지
+  const filterState = isOwnedScene ? currentKwFilterOwned : currentKwFilterUnowned;
+  filterState.kw1 = null;
+  filterState.kw2 = null;
   updateKwFilterUI(isOwnedScene);
 }
 
@@ -6066,11 +6064,13 @@ export function initKeywordFilterUI(isOwnedScene = true) {
     toolbar.appendChild(kwWrapper);
     bindKwDropdownEvents(isOwnedScene);
   }
+
+  updateKwFilterUI(isOwnedScene);
 }
 
 function bindKwDropdownEvents(isOwnedScene) {
   const prefix = isOwnedScene ? 'owned' : 'unowned';
-  const filterState = isOwnedScene ? currentKwFilterOwned : currentKwFilterUnowned;
+  const getFilterState = () => (isOwnedScene ? currentKwFilterOwned : currentKwFilterUnowned);
 
   ['kw1', 'kw2'].forEach(slot => {
     const dd = document.getElementById(`${slot}-dd-${prefix}`);
@@ -6089,8 +6089,10 @@ function bindKwDropdownEvents(isOwnedScene) {
       if (isOpen) {
         menu.style.display = 'none';
       } else {
-        renderKwMenuOptions(menu, slot, filterState[otherSlot], (chosenEmoji, chosenLabel) => {
-          filterState[slot] = chosenEmoji;
+        const state = getFilterState();
+        renderKwMenuOptions(menu, slot, state[otherSlot], (chosenEmoji, chosenLabel) => {
+          const liveState = getFilterState();
+          liveState[slot] = chosenEmoji;
           menu.style.display = 'none';
           updateKwFilterUI(isOwnedScene);
           renderHoloMemList(isOwnedScene);
@@ -6105,7 +6107,7 @@ function bindKwDropdownEvents(isOwnedScene) {
     const r1 = wrapper.querySelector('.kw-reset-1');
     if (r1) {
       r1.onclick = () => {
-        filterState.kw1 = null;
+        getFilterState().kw1 = null;
         updateKwFilterUI(isOwnedScene);
         renderHoloMemList(isOwnedScene);
       };
@@ -6113,22 +6115,25 @@ function bindKwDropdownEvents(isOwnedScene) {
     const r2 = wrapper.querySelector('.kw-reset-2');
     if (r2) {
       r2.onclick = () => {
-        filterState.kw2 = null;
+        getFilterState().kw2 = null;
         updateKwFilterUI(isOwnedScene);
         renderHoloMemList(isOwnedScene);
       };
     }
   }
 
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.kw-options-menu').forEach(m => m.style.display = 'none');
-  });
+  if (!window._kwDropdownDocClickBound) {
+    window._kwDropdownDocClickBound = true;
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.kw-options-menu').forEach(m => m.style.display = 'none');
+    });
+  }
 }
 
 function renderKwMenuOptions(menuEl, targetSlot, lockedEmoji, onSelect) {
   let html = `<div style="padding: 5px; display: flex; flex-direction: column; gap: 3px;">`;
 
-  // 버프 목록 (연한 하늘색/파란색 뱃지 배경)
+  // 버프 목록 (연한 파란색 뱃지 배경)
   KEYWORD_BUFF_LIST.forEach(item => {
     const isLocked = (lockedEmoji && lockedEmoji === item.emoji);
     const label = `${item.emoji} ${item.name}`;
@@ -6146,10 +6151,10 @@ function renderKwMenuOptions(menuEl, targetSlot, lockedEmoji, onSelect) {
     `;
   });
 
-  // 깔끔한 구분선
+  // 구분선
   html += `<div style="height: 1px; background: #e2e8f0; margin: 4px 4px;"></div>`;
 
-  // 디버프 목록 (연한 빨간색/분홍색 뱃지 배경)
+  // 디버프 목록 (연한 빨간색 뱃지 배경)
   KEYWORD_DEBUFF_LIST.forEach(item => {
     const isLocked = (lockedEmoji && lockedEmoji === item.emoji);
     const label = `${item.emoji} ${item.name}`;
