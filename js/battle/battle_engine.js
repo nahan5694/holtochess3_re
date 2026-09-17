@@ -919,8 +919,40 @@ export class BattleEngine {
 
     if (!targets || targets.length === 0) return;
 
-    const mult = Number(actionData.multiplier) || 0;
+    let mult = Number(actionData.multiplier) || 0;
     const baseStatName = actionData.calc;
+    const range = String(actionData.range || 'SINGLE');
+    const isAttackAction = (actionData.type === 'DAMAGE_PHYS' || actionData.type === 'DAMAGE_MAGIC');
+
+    // 광역기 대상 결손(누수)에 따른 화력 집중 보정
+    if (isAttackAction && mult > 0) {
+      let maxExpectedTargets = 1;
+      let maxBonus = 0; // 1명 타격 시 최대 가산 배율
+
+      if (actionData.target === '적_전체' || actionData.target === 'ALL_ENEMIES' || range === 'ALL') {
+        maxExpectedTargets = opponentTeam?.characters?.length || 8;
+        maxBonus = 1.0; // 최대 200% (+100%)
+      } else if (range.includes('SPLASH_7') || range.includes('7명') || range.includes('7칸')) {
+        maxExpectedTargets = 7;
+        maxBonus = 1.0; // 최대 200% (+100%)
+      } else if (range.includes('SPLASH_5') || range.includes('SPLASH_2') || range.includes('5명') || range.includes('5칸')) {
+        maxExpectedTargets = 5;
+        maxBonus = 0.75; // 최대 175% (+75%)
+      } else if (range.includes('SPLASH_3') || range.includes('SPLASH_1') || range === 'SPLASH' || range.includes('3명') || range.includes('3칸')) {
+        maxExpectedTargets = 3;
+        maxBonus = 0.50; // 최대 150% (+50%)
+      }
+
+      const actualHits = targets.length;
+      if (maxExpectedTargets > 1 && actualHits < maxExpectedTargets) {
+        const missingTargets = maxExpectedTargets - actualHits;
+        const concentrationBonus = (missingTargets / (maxExpectedTargets - 1)) * maxBonus;
+        const originalMult = mult;
+        mult = Math.round(mult * (1 + concentrationBonus));
+
+        this.log(`🎯 [화력 집중] 피격 대상 결손(${actualHits}/${maxExpectedTargets}명) -> 위력 증폭 (+${Math.round(concentrationBonus * 100)}%, 계수: ${originalMult}% -> ${mult}%)`);
+      }
+    }
 
     // 키워드가 시전자(자신) 대상인지 판별하는 헬퍼
     const isSelfKeyword = (kwId) => {
