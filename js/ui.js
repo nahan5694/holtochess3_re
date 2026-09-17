@@ -3362,6 +3362,54 @@ export function updateCharInfoStats(char, level, star, isMyChar = false, hideGro
     }
   }
 
+  // --- 성장 초기화 보라색 버튼 동적 생성 및 배치 ---
+  let btnReset = document.getElementById('btn-growth-reset');
+  const bloomBadgeContainer = document.getElementById('bloom-badge-container');
+
+  if (!btnReset) {
+    btnReset = document.createElement('button');
+    btnReset.id = 'btn-growth-reset';
+    btnReset.textContent = '성장 초기화';
+    btnReset.style.cssText = `
+      background: linear-gradient(135deg, #8e44ad, #9b59b6);
+      color: #fff;
+      border: 1px solid #c39bd3;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(142, 68, 173, 0.4);
+      transition: transform 0.15s, filter 0.15s;
+      vertical-align: middle;
+      margin-right: 8px;
+    `;
+    btnReset.onmouseover = () => btnReset.style.filter = 'brightness(1.15)';
+    btnReset.onmouseout = () => btnReset.style.filter = 'brightness(1.0)';
+    
+    // 개화 뱃지 바로 앞(사진의 붉은 원 위치)에 배치
+    if (bloomBadgeContainer && bloomBadgeContainer.parentNode) {
+      bloomBadgeContainer.parentNode.insertBefore(btnReset, bloomBadgeContainer);
+    }
+  }
+
+  if (btnReset) {
+    const pStats = isActuallyOwned ? PlayerData.characterStats[char.Character_ID] : null;
+    const ssLvl = (pStats?.skillMastery && typeof pStats.skillMastery === 'object') ? (pStats.skillMastery.SS || 0) : (typeof pStats?.skillMastery === 'number' ? pStats.skillMastery : 0);
+    const asLvl = (pStats?.skillMastery && typeof pStats.skillMastery === 'object') ? (pStats.skillMastery.AS || 0) : 0;
+    
+    // 1성, 1레벨, 0EXP, 스킬숙련 0인 기본 상태면 비활성화
+    const isGrown = (level > 1 || star > 1 || (pStats && (pStats.exp || 0) > 0) || ssLvl > 0 || asLvl > 0);
+    
+    btnReset.style.display = (isMyChar && !hideGrowthButtons) ? 'inline-block' : 'none';
+    btnReset.disabled = !isGrown;
+    btnReset.style.opacity = isGrown ? '1' : '0.4';
+    btnReset.style.cursor = isGrown ? 'pointer' : 'not-allowed';
+    btnReset.onclick = () => {
+      if (isGrown) openGrowthResetModal(char);
+    };
+  }
+
   const atkUp = parseInt(char.Character_ATK_UP || 1, 10);
   const idolUp = parseInt(char.Character_Idol_UP || 1, 10);
   const hpUp = parseInt(char.Character_HP_UP || 1, 10);
@@ -5656,3 +5704,205 @@ function handleSkillMasteryUpgrade() {
 window.openSkillMasteryModal = openSkillMasteryModal;
 window.closeSkillMasteryModal = closeSkillMasteryModal;
 
+// =========================================
+// 성장 초기화 시스템 (레벨/승급/스킬숙련 100% 환급)
+// =========================================
+export function openGrowthResetModal(char) {
+  const charId = char.Character_ID;
+  const stats = PlayerData.characterStats && PlayerData.characterStats[charId];
+  if (!stats) return;
+
+  const resetTicketQty = PlayerData.items['Item_040'] || 0;
+  const ticketData = (GameData.items || []).find(i => i.Item_ID === 'Item_040');
+  const ticketIcon = ticketData ? ticketData.Item_Icon : 'https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/icon/Item_040.png';
+  const ticketName = ticketData ? ticketData.Item_Name : '성장 초기화권';
+
+  let confirmModal = document.getElementById('growth-reset-confirm-modal');
+  if (!confirmModal) {
+    confirmModal = document.createElement('div');
+    confirmModal.id = 'growth-reset-confirm-modal';
+    confirmModal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.75); z-index:9999; display:flex; align-items:center; justify-content:center;';
+    document.body.appendChild(confirmModal);
+  }
+
+  confirmModal.innerHTML = `
+    <div style="background:#1e293b; border:1px solid #475569; border-radius:12px; padding:24px; width:90%; max-width:400px; color:#fff; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+      <h3 style="margin-top:0; color:#e2e8f0; font-size:1.25rem;">캐릭터 성장 초기화</h3>
+      <p style="color:#94a3b8; font-size:0.9rem; line-height:1.5;">
+        <strong style="color:#f87171;">${char.Character_Name}</strong>의 레벨, 승급, 스킬 숙련도가 초기화되며,<br>사용된 모든 재료와 크레딧이 100% 환급됩니다.
+      </p>
+      <div style="background:rgba(0,0,0,0.3); border-radius:8px; padding:12px; margin:16px 0; display:flex; align-items:center; justify-content:center; gap:12px;">
+        <img src="${ticketIcon}" style="width:36px; height:36px; object-fit:contain;" onerror="this.style.display='none'">
+        <div style="text-align:left;">
+          <div style="font-size:0.85rem; color:#cbd5e1;">소모 재화: ${ticketName}</div>
+          <div style="font-size:0.95rem; font-weight:bold; color:${resetTicketQty >= 1 ? '#4ade80' : '#f87171'};">
+            1 / 보유 ${resetTicketQty}개
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:center; margin-top:20px;">
+        <button id="btn-reset-cancel" style="flex:1; padding:10px; border:none; border-radius:6px; background:#475569; color:#fff; font-weight:bold; cursor:pointer;">취소</button>
+        <button id="btn-reset-exec" style="flex:1; padding:10px; border:none; border-radius:6px; background:linear-gradient(135deg, #8e44ad, #9b59b6); color:#fff; font-weight:bold; cursor:pointer;" ${resetTicketQty < 1 ? 'disabled' : ''}>초기화 진행</button>
+      </div>
+    </div>
+  `;
+  confirmModal.style.display = 'flex';
+
+  document.getElementById('btn-reset-cancel').onclick = () => confirmModal.style.display = 'none';
+  document.getElementById('btn-reset-exec').onclick = () => {
+    confirmModal.style.display = 'none';
+    executeGrowthReset(char, stats);
+  };
+}
+
+function executeGrowthReset(char, stats) {
+  // 1. 초기화권 차감
+  PlayerData.items['Item_040'] = (PlayerData.items['Item_040'] || 1) - 1;
+
+  const refunded = {};
+  const addRefund = (itemId, qty) => {
+    if (!qty || qty <= 0) return;
+    refunded[itemId] = (refunded[itemId] || 0) + qty;
+    PlayerData.items[itemId] = (PlayerData.items[itemId] || 0) + qty;
+  };
+
+  // 2. 레벨 누적 경험치 및 크레딧 환급 역산
+  let totalExp = stats.exp || 0;
+  let totalCredit = 0;
+  let simLvl = 1;
+  const curLvl = stats.level || 1;
+
+  while (simLvl < curLvl) {
+    const nextTarget = simLvl === 1 ? 10 : simLvl + 10;
+    if (nextTarget > curLvl) break;
+    const req = typeof EXP_TABLE !== 'undefined' ? EXP_TABLE[nextTarget] : null;
+    if (req) {
+      totalExp += (req.exp || 0);
+      totalCredit += (req.credit || 0);
+    }
+    simLvl = nextTarget;
+  }
+
+  if (totalCredit > 0) addRefund('Item_002', totalCredit);
+
+  // 경험치 책 환급 (Item_008 -> Item_007 -> Item_006 순 분배)
+  if (totalExp > 0 && typeof EXP_ITEMS !== 'undefined') {
+    const expBooks = [
+      { id: 'Item_008', exp: EXP_ITEMS['Item_008'] || 10000 },
+      { id: 'Item_007', exp: EXP_ITEMS['Item_007'] || 2000 },
+      { id: 'Item_006', exp: EXP_ITEMS['Item_006'] || 500 }
+    ];
+    let remainingExp = totalExp;
+    for (const book of expBooks) {
+      if (remainingExp >= book.exp) {
+        const count = Math.floor(remainingExp / book.exp);
+        addRefund(book.id, count);
+        remainingExp %= book.exp;
+      }
+    }
+    if (remainingExp > 0) addRefund('Item_006', 1);
+  }
+
+  // 3. 승급 재료 환급
+  const mainType = (char.Character_Type || '').split('/')[0].replace(/\s/g, '').trim();
+  const mainRole = (char.Character_Role || '').split('/')[0].replace(/\s/g, '').trim();
+
+  const typeMap = { '청초':'Item_011', '게닌':'Item_012', '쿨':'Item_013', '아티스트':'Item_014', '큐트':'Item_015', '광기':'Item_016', '에로':'Item_017' };
+  const role12 = { '근거리딜러':'Item_022', '원거리딜러':'Item_037', '마법딜러':'Item_025', '암살자':'Item_031', '탱커':'Item_022', '버퍼':'Item_028', '디버퍼':'Item_034', '힐러':'Item_025' };
+  const role8 = { '근거리딜러':'Item_037', '원거리딜러':'Item_031', '마법딜러':'Item_031', '암살자':'Item_037', '탱커':'Item_034', '버퍼':'Item_022', '디버퍼':'Item_028', '힐러':'Item_034' };
+  const role12_s3 = { '근거리딜러':'Item_021', '원거리딜러':'Item_036', '마법딜러':'Item_024', '암살자':'Item_030', '탱커':'Item_021', '버퍼':'Item_027', '디버퍼':'Item_033', '힐러':'Item_024' };
+  const role8_s3 = { '근거리딜러':'Item_036', '원거리딜러':'Item_030', '마법딜러':'Item_030', '암살자':'Item_036', '탱커':'Item_033', '버퍼':'Item_021', '디버퍼':'Item_027', '힐러':'Item_033' };
+
+  if (stats.star >= 2) {
+    if (typeMap[mainType]) addRefund(typeMap[mainType], 6);
+    if (role12[mainRole]) addRefund(role12[mainRole], 12);
+    if (role8[mainRole]) addRefund(role8[mainRole], 8);
+  }
+  if (stats.star >= 3) {
+    if (typeMap[mainType]) addRefund(typeMap[mainType], 24);
+    if (role12_s3[mainRole]) addRefund(role12_s3[mainRole], 12);
+    if (role8_s3[mainRole]) addRefund(role8_s3[mainRole], 8);
+  }
+
+  // 4. 스킬 숙련도 재료 환급 (SS & AS)
+  const ssLvl = (stats.skillMastery && typeof stats.skillMastery === 'object') ? (stats.skillMastery.SS || 0) : (typeof stats.skillMastery === 'number' ? stats.skillMastery : 0);
+  const asLvl = (stats.skillMastery && typeof stats.skillMastery === 'object') ? (stats.skillMastery.AS || 0) : 0;
+
+  const rawRole = (char.Character_Role || '').split('/')[0].trim();
+  const roleNoSpace = rawRole.replace(/\s/g, '');
+  let roleMatMap = ROLE_MATERIAL_MAP[rawRole] || ROLE_MATERIAL_MAP[roleNoSpace];
+  if (!roleMatMap) {
+    const matchedKey = Object.keys(ROLE_MATERIAL_MAP).find(k => k.replace(/\s/g, '') === roleNoSpace);
+    roleMatMap = matchedKey ? ROLE_MATERIAL_MAP[matchedKey] : ROLE_MATERIAL_MAP['근거리 딜러'];
+  }
+
+  const refundMasteryByLevel = (targetLvl) => {
+    for (let i = 0; i < targetLvl; i++) {
+      const c = SKILL_MASTERY_COSTS[i];
+      if (c) {
+        addRefund('Item_009', c.soulQty);
+        addRefund(roleMatMap[c.matRarity], c.matQty);
+        addRefund('Item_002', c.credit);
+      }
+    }
+  };
+
+  refundMasteryByLevel(ssLvl);
+  refundMasteryByLevel(asLvl);
+  stats.skillMastery = { SS: 0, AS: 0 };
+
+  // 5. 캐릭터 성장 수치 완전 초기화
+  stats.level = 1;
+  stats.exp = 0;
+  stats.star = 1;
+  PlayerData.characterStats[char.Character_ID] = { ...stats };
+
+  if (window.savePlayerData) {
+    window.savePlayerData();
+  }
+
+  // 6. UI 반영 및 결과창 모달 노출
+  updateCharInfoStats(char, 1, 1, true);
+  if (typeof window.playAssetSound === 'function') {
+    window.playAssetSound('asset_019');
+  }
+  showGrowthResetResultModal(refunded);
+}
+
+function showGrowthResetResultModal(refunded) {
+  let resModal = document.getElementById('growth-reset-result-modal');
+  if (!resModal) {
+    resModal = document.createElement('div');
+    resModal.id = 'growth-reset-result-modal';
+    resModal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:10000; display:flex; align-items:center; justify-content:center;';
+    document.body.appendChild(resModal);
+  }
+
+  const itemsList = Object.entries(refunded);
+  let gridHtml = '';
+  itemsList.forEach(([id, qty]) => {
+    const itemData = (GameData.items || []).find(i => i.Item_ID === id);
+    const name = itemData ? itemData.Item_Name : id;
+    const icon = itemData && itemData.Item_Icon ? itemData.Item_Icon : `https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/icon/${id}.png`;
+    gridHtml += `
+      <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px 6px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <img src="${icon}" style="width:40px; height:40px; object-fit:contain; margin-bottom:6px;" alt="${name}">
+        <div style="font-size:0.75rem; color:#cbd5e1; max-width:75px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${name}">${name}</div>
+        <div style="font-size:0.85rem; font-weight:bold; color:#38bdf8; margin-top:2px;">+${qty.toLocaleString()}</div>
+      </div>
+    `;
+  });
+
+  resModal.innerHTML = `
+    <div style="background:#0f172a; border:1px solid #334155; border-radius:14px; padding:24px; width:90%; max-width:440px; color:#fff; text-align:center; box-shadow:0 12px 30px rgba(0,0,0,0.7);">
+      <h3 style="margin-top:0; color:#38bdf8; font-size:1.25rem;">✨ 초기화 및 재화 환급 완료</h3>
+      <p style="color:#94a3b8; font-size:0.85rem; margin-bottom:16px;">모든 성장 단계(1성, Lv.1, 스킬숙련 0)가 초기화되고 재료가 반환되었습니다.</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(80px, 1fr)); gap:8px; max-height:280px; overflow-y:auto; padding:4px;">
+        ${gridHtml || '<div style="color:#64748b; grid-column:1/-1;">환급된 재화가 없습니다.</div>'}
+      </div>
+      <button id="btn-reset-result-close" style="margin-top:20px; width:100%; padding:10px; border:none; border-radius:6px; background:#3b82f6; color:#fff; font-weight:bold; cursor:pointer;">확인</button>
+    </div>
+  `;
+  resModal.style.display = 'flex';
+  document.getElementById('btn-reset-result-close').onclick = () => resModal.style.display = 'none';
+}
