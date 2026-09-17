@@ -2570,7 +2570,6 @@ export function renderHoloMemList(isOwnedScene = true) {
         return (a.Character_ID || "").localeCompare(b.Character_ID || "");
     };
 
-    // 키워드 필터 활성화 시 항상 SSR/SR/R 랭크별 레벨 내림차순 정렬
     if (isKwActive) {
       return defaultSort();
     } else if (currentSortMode === "level") {
@@ -2593,50 +2592,6 @@ export function renderHoloMemList(isOwnedScene = true) {
       return defaultSort();
     }
   });
-    const statA = (isOwnedScene && PlayerData && PlayerData.characterStats && PlayerData.characterStats[a.Character_ID]) || { star: 1, level: 1 };
-    const statB = (isOwnedScene && PlayerData && PlayerData.characterStats && PlayerData.characterStats[b.Character_ID]) || { star: 1, level: 1 };
-    const lvlA = isOwnedScene ? statA.level : (a._demoLevel || 1);
-    const lvlB = isOwnedScene ? statB.level : (b._demoLevel || 1);
-    const starA = isOwnedScene ? statA.star : 3;
-    const starB = isOwnedScene ? statB.star : 3;
-    
-    const levelSort = () => {
-        if (lvlB !== lvlA) return lvlB - lvlA;
-        const tierWeights = { "SSR": 3, "SR": 2, "R": 1, "N": 0 };
-        const tierA = tierWeights[a.Character_Tier] || 0;
-        const tierB = tierWeights[b.Character_Tier] || 0;
-        if (tierA !== tierB) return tierB - tierA;
-        return (a.Character_ID || "").localeCompare(b.Character_ID || "");
-    };
-    
-    const defaultSort = () => {
-        const tierWeights = { "SSR": 3, "SR": 2, "R": 1, "N": 0 };
-        const tierA = tierWeights[a.Character_Tier] || 0;
-        const tierB = tierWeights[b.Character_Tier] || 0;
-        if (tierA !== tierB) return tierB - tierA;
-        if (lvlB !== lvlA) return lvlB - lvlA;
-        return (a.Character_ID || "").localeCompare(b.Character_ID || "");
-    };
-
-    if (currentSortMode === "level") {
-      return levelSort();
-    } else if (currentSortMode === "type") {
-      const typeWeights = { "청초": 1, "게닌": 2, "쿨": 3, "아티스트": 4, "큐트": 5, "광기": 6, "에로": 7 };
-      const wA = typeWeights[a.Character_Type] || 99;
-      const wB = typeWeights[b.Character_Type] || 99;
-      if (wA !== wB) return wA - wB;
-      return defaultSort();
-    } else if (currentSortMode === "class") {
-      const clsA = (a.Character_Role || "").split('/')[0].replace(/\s/g, "").trim();
-      const clsB = (b.Character_Role || "").split('/')[0].replace(/\s/g, "").trim();
-      const roleWeights = { "근거리딜러": 1, "원거리딜러": 2, "마법딜러": 3, "탱커": 4, "암살자": 5, "버퍼": 6, "디버퍼": 7, "힐러": 8 };
-      const wA = roleWeights[clsA] || 99;
-      const wB = roleWeights[clsB] || 99;
-      if (wA !== wB) return wA - wB;
-      return defaultSort();
-    } else {
-      return defaultSort();
-    }});
 
   const attrIcons = {
     "청초": "https://raw.githubusercontent.com/nahan5694/holtochess3/refs/heads/main/icon/Seiso_icon.png",
