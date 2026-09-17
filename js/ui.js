@@ -1642,6 +1642,32 @@ window.openHelpModal = openHelpModal;
         window.savePlayerData();
       }
 
+        } else if (code === "0002") {
+      // 1. 중복 수령 검사
+      if (!PlayerData.claimedDevCodes) PlayerData.claimedDevCodes = {};
+      if (PlayerData.claimedDevCodes['0002']) {
+        alert("이미 사용된 개발자 코드입니다.");
+        return;
+      }
+
+      // 2. 보상 지급 (Item_040: 20개, Item_010: 100개)
+      if (!PlayerData.items) PlayerData.items = {};
+      PlayerData.items['Item_040'] = (PlayerData.items['Item_040'] || 0) + 20;
+      PlayerData.items['Item_010'] = (PlayerData.items['Item_010'] || 0) + 100;
+
+      // 3. 수령 완료 처리 및 저장/UI 갱신
+      PlayerData.claimedDevCodes['0002'] = true;
+      inputDevCode.value = "";
+      alert("🎁 개발자 코드(0002) 보상이 지급되었습니다!\n(Item_040 +20, Item_010 +100)");
+
+      updateTopCurrencies();
+      if (typeof window.renderWarehouseItems === 'function') {
+        window.renderWarehouseItems();
+      }
+      if (typeof window.savePlayerData === 'function') {
+        window.savePlayerData();
+      }
+
     } else if (code === "0782") {
         if (!PlayerData.items) PlayerData.items = {};
         const devRewards = {
