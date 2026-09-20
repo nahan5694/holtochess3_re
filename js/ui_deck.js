@@ -102,96 +102,15 @@ window.resetDeckSort = function() {
 // Deck 캐릭터 목록 키워드 필터
 // =========================================
 
-// =========================================
-// Deck 캐릭터 목록 키워드 필터
-// =========================================
-
 function initDeckKeywordFilterUI() {
   const sceneEl = document.getElementById('scene-deck');
   if (!sceneEl) return;
 
-  const sortBtn = document.getElementById('deck-sort-btn');
-  const sortOptions = document.getElementById('deck-sort-options');
-  const sortLabel = document.getElementById('deck-sort-label');
-  const resetBtn = document.getElementById('btn-reset-deck');
+  // index.html에 이미 존재하는 상단 컨트롤 바 사용
+  const toolbar = sceneEl.querySelector('.deck-char-list-top-toolbar');
+  if (!toolbar) return;
 
-  if (!sortBtn || !sortOptions || !sortLabel) return;
-
-  // 기존 정렬 UI의 실제 컨테이너
-  const sortContainer =
-    sortBtn.closest('.sort-dropdown-container') ||
-    sortBtn.parentElement;
-
-  if (!sortContainer || !sortContainer.parentNode) return;
-
-  // =========================================
-  // 한 줄짜리 상단 툴바 생성
-  // =========================================
-
-  let toolbar = sceneEl.querySelector('.deck-char-list-top-toolbar');
-
-  if (!toolbar) {
-    toolbar = document.createElement('div');
-    toolbar.className = 'deck-char-list-top-toolbar';
-
-    toolbar.style.cssText = `
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      box-sizing: border-box;
-      min-height: 48px;
-      padding: 0 2px;
-      z-index: 1100;
-      flex-wrap: nowrap;
-    `;
-
-    // 정렬 컨테이너 앞에 툴바를 생성
-    sortContainer.parentNode.insertBefore(toolbar, sortContainer);
-
-    // 정렬 UI를 툴바 안으로 이동
-    toolbar.appendChild(sortContainer);
-  }
-
-  // =========================================
-  // 정렬 UI 폭 고정
-  // =========================================
-
-  sortContainer.style.position = 'relative';
-  sortContainer.style.width = 'auto';
-  sortContainer.style.minWidth = '0';
-  sortContainer.style.maxWidth = 'none';
-  sortContainer.style.flex = '0 0 auto';
-  sortContainer.style.margin = '0';
-
-  // =========================================
-  // 세팅 초기화 버튼도 같은 줄로 이동
-  // =========================================
-
-  if (resetBtn) {
-    toolbar.appendChild(resetBtn);
-
-    resetBtn.style.position = 'relative';
-    resetBtn.style.left = 'auto';
-    resetBtn.style.right = 'auto';
-    resetBtn.style.top = 'auto';
-    resetBtn.style.bottom = 'auto';
-    resetBtn.style.transform = 'none';
-    resetBtn.style.margin = '0';
-    resetBtn.style.flex = '0 0 auto';
-    resetBtn.style.width = 'auto';
-    resetBtn.style.height = 'auto';
-    resetBtn.style.display = 'inline-flex';
-    resetBtn.style.alignItems = 'center';
-    resetBtn.style.justifyContent = 'center';
-    resetBtn.style.boxSizing = 'border-box';
-  }
-
-  // =========================================
-  // 키워드 필터 UI
-  // =========================================
-
+  // 키워드 필터 UI가 이미 있으면 중복 생성하지 않음
   let kwWrapper = toolbar.querySelector('.deck-keyword-filter-wrapper');
 
   if (!kwWrapper) {
@@ -202,22 +121,35 @@ function initDeckKeywordFilterUI() {
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: nowrap;
       flex: 0 0 auto;
-      margin-left: 2px;
+      margin: 0;
+      height: 40px;
+      box-sizing: border-box;
+      white-space: nowrap;
     `;
 
     kwWrapper.innerHTML = `
       <!-- 키워드 1 -->
-      <div style="display:flex; align-items:center; gap:3px;">
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          gap:3px;
+          height:40px;
+        "
+      >
         <div
           class="deck-kw-dropdown"
           data-slot="kw1"
-          style="position:relative;"
+          style="
+            position:relative;
+            height:40px;
+          "
         >
           <div
             class="deck-kw-dropdown-btn"
             style="
+              height:40px;
               background:#fff;
               border:1.5px solid #3498db;
               border-radius:6px;
@@ -266,6 +198,7 @@ function initDeckKeywordFilterUI() {
           style="
             width:24px;
             height:24px;
+            padding:0;
             border-radius:50%;
             border:1px solid #cbd5e1;
             background:#f8fafc;
@@ -278,22 +211,32 @@ function initDeckKeywordFilterUI() {
             transition:all 0.15s;
             opacity:0.3;
             pointer-events:none;
-            padding:0;
             box-sizing:border-box;
           "
         >✕</button>
       </div>
 
       <!-- 키워드 2 -->
-      <div style="display:flex; align-items:center; gap:3px;">
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          gap:3px;
+          height:40px;
+        "
+      >
         <div
           class="deck-kw-dropdown"
           data-slot="kw2"
-          style="position:relative;"
+          style="
+            position:relative;
+            height:40px;
+          "
         >
           <div
             class="deck-kw-dropdown-btn"
             style="
+              height:40px;
               background:#fff;
               border:1.5px solid #3498db;
               border-radius:6px;
@@ -342,6 +285,7 @@ function initDeckKeywordFilterUI() {
           style="
             width:24px;
             height:24px;
+            padding:0;
             border-radius:50%;
             border:1px solid #cbd5e1;
             background:#f8fafc;
@@ -354,27 +298,17 @@ function initDeckKeywordFilterUI() {
             transition:all 0.15s;
             opacity:0.3;
             pointer-events:none;
-            padding:0;
             box-sizing:border-box;
           "
         >✕</button>
       </div>
     `;
 
-    // 정렬 다음에 키워드 필터가 오도록 추가
+    // 정렬 → 초기화 다음에 키워드가 붙음
     toolbar.appendChild(kwWrapper);
 
     bindDeckKeywordFilterEvents();
   }
-
-  // 이미 존재하던 경우에도 반드시 올바른 순서 유지
-  toolbar.appendChild(sortContainer);
-
-  if (resetBtn) {
-    toolbar.appendChild(resetBtn);
-  }
-
-  toolbar.appendChild(kwWrapper);
 
   updateDeckKeywordFilterUI();
 }
