@@ -102,25 +102,35 @@ window.resetDeckSort = function() {
 // Deck 캐릭터 목록 키워드 필터
 // =========================================
 
+// =========================================
+// Deck 캐릭터 목록 키워드 필터
+// =========================================
+
 function initDeckKeywordFilterUI() {
   const sceneEl = document.getElementById('scene-deck');
   if (!sceneEl) return;
 
   const sortBtn = document.getElementById('deck-sort-btn');
   const sortOptions = document.getElementById('deck-sort-options');
+  const sortLabel = document.getElementById('deck-sort-label');
+  const resetBtn = document.getElementById('btn-reset-deck');
 
-  if (!sortBtn || !sortOptions) return;
+  if (!sortBtn || !sortOptions || !sortLabel) return;
 
-  // 기존 키워드 UI가 이미 있으면 중복 생성하지 않음
+  // 기존 정렬 UI의 실제 컨테이너
+  const sortContainer =
+    sortBtn.closest('.sort-dropdown-container') ||
+    sortBtn.parentElement;
+
+  if (!sortContainer || !sortContainer.parentNode) return;
+
+  // =========================================
+  // 한 줄짜리 상단 툴바 생성
+  // =========================================
+
   let toolbar = sceneEl.querySelector('.deck-char-list-top-toolbar');
 
   if (!toolbar) {
-    const sortContainer =
-      sortBtn.closest('.sort-dropdown-container') ||
-      sortBtn.parentElement;
-
-    if (!sortContainer || !sortContainer.parentNode) return;
-
     toolbar = document.createElement('div');
     toolbar.className = 'deck-char-list-top-toolbar';
 
@@ -129,16 +139,58 @@ function initDeckKeywordFilterUI() {
       display: flex;
       align-items: center;
       gap: 8px;
-      z-index: 1000;
       width: 100%;
       box-sizing: border-box;
+      min-height: 48px;
+      padding: 0 2px;
+      z-index: 1100;
+      flex-wrap: nowrap;
     `;
 
+    // 정렬 컨테이너 앞에 툴바를 생성
     sortContainer.parentNode.insertBefore(toolbar, sortContainer);
 
-    // 기존 정렬 UI를 toolbar 안으로 이동
+    // 정렬 UI를 툴바 안으로 이동
     toolbar.appendChild(sortContainer);
   }
+
+  // =========================================
+  // 정렬 UI 폭 고정
+  // =========================================
+
+  sortContainer.style.position = 'relative';
+  sortContainer.style.width = 'auto';
+  sortContainer.style.minWidth = '0';
+  sortContainer.style.maxWidth = 'none';
+  sortContainer.style.flex = '0 0 auto';
+  sortContainer.style.margin = '0';
+
+  // =========================================
+  // 세팅 초기화 버튼도 같은 줄로 이동
+  // =========================================
+
+  if (resetBtn) {
+    toolbar.appendChild(resetBtn);
+
+    resetBtn.style.position = 'relative';
+    resetBtn.style.left = 'auto';
+    resetBtn.style.right = 'auto';
+    resetBtn.style.top = 'auto';
+    resetBtn.style.bottom = 'auto';
+    resetBtn.style.transform = 'none';
+    resetBtn.style.margin = '0';
+    resetBtn.style.flex = '0 0 auto';
+    resetBtn.style.width = 'auto';
+    resetBtn.style.height = 'auto';
+    resetBtn.style.display = 'inline-flex';
+    resetBtn.style.alignItems = 'center';
+    resetBtn.style.justifyContent = 'center';
+    resetBtn.style.boxSizing = 'border-box';
+  }
+
+  // =========================================
+  // 키워드 필터 UI
+  // =========================================
 
   let kwWrapper = toolbar.querySelector('.deck-keyword-filter-wrapper');
 
@@ -150,7 +202,9 @@ function initDeckKeywordFilterUI() {
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      flex: 0 0 auto;
+      margin-left: 2px;
     `;
 
     kwWrapper.innerHTML = `
@@ -178,6 +232,7 @@ function initDeckKeywordFilterUI() {
               min-width:105px;
               justify-content:space-between;
               box-shadow:0 2px 4px rgba(0,0,0,0.06);
+              box-sizing:border-box;
             "
           >
             <span class="deck-kw-label">키워드 1</span>
@@ -198,7 +253,7 @@ function initDeckKeywordFilterUI() {
               border:1px solid #cbd5e1;
               border-radius:8px;
               box-shadow:0 10px 25px rgba(0,0,0,0.18);
-              z-index:1001;
+              z-index:2000;
               padding:4px 0;
             "
           ></div>
@@ -223,6 +278,8 @@ function initDeckKeywordFilterUI() {
             transition:all 0.15s;
             opacity:0.3;
             pointer-events:none;
+            padding:0;
+            box-sizing:border-box;
           "
         >✕</button>
       </div>
@@ -251,6 +308,7 @@ function initDeckKeywordFilterUI() {
               min-width:105px;
               justify-content:space-between;
               box-shadow:0 2px 4px rgba(0,0,0,0.06);
+              box-sizing:border-box;
             "
           >
             <span class="deck-kw-label">키워드 2</span>
@@ -271,7 +329,7 @@ function initDeckKeywordFilterUI() {
               border:1px solid #cbd5e1;
               border-radius:8px;
               box-shadow:0 10px 25px rgba(0,0,0,0.18);
-              z-index:1001;
+              z-index:2000;
               padding:4px 0;
             "
           ></div>
@@ -296,16 +354,27 @@ function initDeckKeywordFilterUI() {
             transition:all 0.15s;
             opacity:0.3;
             pointer-events:none;
+            padding:0;
+            box-sizing:border-box;
           "
         >✕</button>
       </div>
     `;
 
-    // 기존 정렬 UI와 나란히 배치
-    toolbar.insertBefore(kwWrapper, toolbar.firstChild);
+    // 정렬 다음에 키워드 필터가 오도록 추가
+    toolbar.appendChild(kwWrapper);
 
     bindDeckKeywordFilterEvents();
   }
+
+  // 이미 존재하던 경우에도 반드시 올바른 순서 유지
+  toolbar.appendChild(sortContainer);
+
+  if (resetBtn) {
+    toolbar.appendChild(resetBtn);
+  }
+
+  toolbar.appendChild(kwWrapper);
 
   updateDeckKeywordFilterUI();
 }
