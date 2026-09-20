@@ -1,10 +1,20 @@
 import { GameData, PlayerData } from './state.js?v=004276';
-import { openCharInfoModal } from './ui.js?v=004276';
+import {
+  openCharInfoModal,
+  KEYWORD_BUFF_LIST,
+  KEYWORD_DEBUFF_LIST
+} from './ui.js?v=004276';
 
 let currentDeckIndex = 0;
 let draggedCharId = null;
 let draggedFromSlot = null;
 let deckSortType = 'default';
+
+// 덱 캐릭터 목록 키워드 필터 상태
+let deckKeywordFilterState = {
+  kw1: null,
+  kw2: null
+};
 
 // Utility for long press
 function addClickWithDragThreshold(element, onClick) {
@@ -88,9 +98,522 @@ window.resetDeckSort = function() {
   if (sortLabel) sortLabel.textContent = "기본 정렬";
 };
 
+// =========================================
+// Deck 캐릭터 목록 키워드 필터
+// =========================================
+
+function initDeckKeywordFilterUI() {
+  const sceneEl = document.getElementById('scene-deck');
+  if (!sceneEl) return;
+
+  const sortBtn = document.getElementById('deck-sort-btn');
+  const sortOptions = document.getElementById('deck-sort-options');
+
+  if (!sortBtn || !sortOptions) return;
+
+  // 기존 키워드 UI가 이미 있으면 중복 생성하지 않음
+  let toolbar = sceneEl.querySelector('.deck-char-list-top-toolbar');
+
+  if (!toolbar) {
+    const sortContainer =
+      sortBtn.closest('.sort-dropdown-container') ||
+      sortBtn.parentElement;
+
+    if (!sortContainer || !sortContainer.parentNode) return;
+
+    toolbar = document.createElement('div');
+    toolbar.className = 'deck-char-list-top-toolbar';
+
+    toolbar.style.cssText = `
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
+      width: 100%;
+      box-sizing: border-box;
+    `;
+
+    sortContainer.parentNode.insertBefore(toolbar, sortContainer);
+
+    // 기존 정렬 UI를 toolbar 안으로 이동
+    toolbar.appendChild(sortContainer);
+  }
+
+  let kwWrapper = toolbar.querySelector('.deck-keyword-filter-wrapper');
+
+  if (!kwWrapper) {
+    kwWrapper = document.createElement('div');
+    kwWrapper.className = 'deck-keyword-filter-wrapper';
+
+    kwWrapper.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    `;
+
+    kwWrapper.innerHTML = `
+      <!-- 키워드 1 -->
+      <div style="display:flex; align-items:center; gap:3px;">
+        <div
+          class="deck-kw-dropdown"
+          data-slot="kw1"
+          style="position:relative;"
+        >
+          <div
+            class="deck-kw-dropdown-btn"
+            style="
+              background:#fff;
+              border:1.5px solid #3498db;
+              border-radius:6px;
+              padding:5px 9px;
+              font-size:0.83rem;
+              font-weight:bold;
+              color:#2c3e50;
+              cursor:pointer;
+              display:flex;
+              align-items:center;
+              gap:6px;
+              min-width:105px;
+              justify-content:space-between;
+              box-shadow:0 2px 4px rgba(0,0,0,0.06);
+            "
+          >
+            <span class="deck-kw-label">키워드 1</span>
+            <span style="font-size:0.7rem; color:#7f8c8d;">▼</span>
+          </div>
+
+          <div
+            class="deck-kw-options-menu"
+            style="
+              display:none;
+              position:absolute;
+              top:calc(100% + 4px);
+              left:0;
+              width:170px;
+              max-height:380px;
+              overflow-y:auto;
+              background:#ffffff;
+              border:1px solid #cbd5e1;
+              border-radius:8px;
+              box-shadow:0 10px 25px rgba(0,0,0,0.18);
+              z-index:1001;
+              padding:4px 0;
+            "
+          ></div>
+        </div>
+
+        <button
+          class="deck-kw-reset-btn"
+          data-slot="kw1"
+          title="키워드 1 초기화"
+          style="
+            width:24px;
+            height:24px;
+            border-radius:50%;
+            border:1px solid #cbd5e1;
+            background:#f8fafc;
+            color:#94a3b8;
+            font-size:11px;
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            transition:all 0.15s;
+            opacity:0.3;
+            pointer-events:none;
+          "
+        >✕</button>
+      </div>
+
+      <!-- 키워드 2 -->
+      <div style="display:flex; align-items:center; gap:3px;">
+        <div
+          class="deck-kw-dropdown"
+          data-slot="kw2"
+          style="position:relative;"
+        >
+          <div
+            class="deck-kw-dropdown-btn"
+            style="
+              background:#fff;
+              border:1.5px solid #3498db;
+              border-radius:6px;
+              padding:5px 9px;
+              font-size:0.83rem;
+              font-weight:bold;
+              color:#2c3e50;
+              cursor:pointer;
+              display:flex;
+              align-items:center;
+              gap:6px;
+              min-width:105px;
+              justify-content:space-between;
+              box-shadow:0 2px 4px rgba(0,0,0,0.06);
+            "
+          >
+            <span class="deck-kw-label">키워드 2</span>
+            <span style="font-size:0.7rem; color:#7f8c8d;">▼</span>
+          </div>
+
+          <div
+            class="deck-kw-options-menu"
+            style="
+              display:none;
+              position:absolute;
+              top:calc(100% + 4px);
+              left:0;
+              width:170px;
+              max-height:380px;
+              overflow-y:auto;
+              background:#ffffff;
+              border:1px solid #cbd5e1;
+              border-radius:8px;
+              box-shadow:0 10px 25px rgba(0,0,0,0.18);
+              z-index:1001;
+              padding:4px 0;
+            "
+          ></div>
+        </div>
+
+        <button
+          class="deck-kw-reset-btn"
+          data-slot="kw2"
+          title="키워드 2 초기화"
+          style="
+            width:24px;
+            height:24px;
+            border-radius:50%;
+            border:1px solid #cbd5e1;
+            background:#f8fafc;
+            color:#94a3b8;
+            font-size:11px;
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            transition:all 0.15s;
+            opacity:0.3;
+            pointer-events:none;
+          "
+        >✕</button>
+      </div>
+    `;
+
+    // 기존 정렬 UI와 나란히 배치
+    toolbar.insertBefore(kwWrapper, toolbar.firstChild);
+
+    bindDeckKeywordFilterEvents();
+  }
+
+  updateDeckKeywordFilterUI();
+}
+
+
+function bindDeckKeywordFilterEvents() {
+  const toolbar = document.querySelector('.deck-char-list-top-toolbar');
+  if (!toolbar) return;
+
+  ['kw1', 'kw2'].forEach(slotName => {
+    const dropdown = toolbar.querySelector(
+      `.deck-kw-dropdown[data-slot="${slotName}"]`
+    );
+
+    if (!dropdown) return;
+
+    const button = dropdown.querySelector('.deck-kw-dropdown-btn');
+    const menu = dropdown.querySelector('.deck-kw-options-menu');
+
+    const otherSlot = slotName === 'kw1' ? 'kw2' : 'kw1';
+
+    button.onclick = (e) => {
+      e.stopPropagation();
+
+      document.querySelectorAll('.deck-kw-options-menu').forEach(m => {
+        if (m !== menu) {
+          m.style.display = 'none';
+        }
+      });
+
+      const isOpen = menu.style.display === 'block';
+
+      if (isOpen) {
+        menu.style.display = 'none';
+        return;
+      }
+
+      renderDeckKeywordMenuOptions(
+        menu,
+        deckKeywordFilterState[otherSlot],
+        (chosenEmoji) => {
+          deckKeywordFilterState[slotName] = chosenEmoji;
+
+          menu.style.display = 'none';
+
+          updateDeckKeywordFilterUI();
+          renderCharPool();
+        }
+      );
+
+      menu.style.display = 'block';
+    };
+  });
+
+  toolbar.querySelectorAll('.deck-kw-reset-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+
+      const slotName = btn.dataset.slot;
+
+      deckKeywordFilterState[slotName] = null;
+
+      updateDeckKeywordFilterUI();
+      renderCharPool();
+    };
+  });
+
+  // 바깥 클릭 시 메뉴 닫기
+  if (!window._deckKeywordDropdownDocClickBound) {
+    window._deckKeywordDropdownDocClickBound = true;
+
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.deck-kw-options-menu').forEach(menu => {
+        menu.style.display = 'none';
+      });
+    });
+  }
+}
+
+
+function renderDeckKeywordMenuOptions(menuEl, lockedEmoji, onSelect) {
+  let html = `
+    <div style="
+      padding:5px;
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+    ">
+  `;
+
+  // 버프 키워드
+  KEYWORD_BUFF_LIST.forEach(item => {
+    const isLocked = lockedEmoji && lockedEmoji === item.emoji;
+
+    const label = `${item.emoji} ${item.name}`;
+    const bg = isLocked ? '#f1f5f9' : '#e0f2fe';
+    const color = isLocked ? '#94a3b8' : '#0369a1';
+    const border = isLocked ? '#e2e8f0' : '#bae6fd';
+
+    html += `
+      <div
+        class="deck-kw-opt-item"
+        data-emoji="${item.emoji}"
+        style="
+          padding:3px 4px;
+          border-radius:6px;
+          cursor:${isLocked ? 'not-allowed' : 'pointer'};
+          opacity:${isLocked ? '0.4' : '1'};
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          transition:background 0.15s;
+        "
+      >
+        <span
+          style="
+            background:${bg};
+            color:${color};
+            border:1px solid ${border};
+            padding:3px 9px;
+            border-radius:6px;
+            font-size:0.82rem;
+            font-weight:bold;
+            display:inline-flex;
+            align-items:center;
+            gap:4px;
+          "
+        >
+          ${label}
+        </span>
+
+        ${
+          isLocked
+            ? '<span style="font-size:0.68rem; color:#ef4444; font-weight:bold; margin-right:4px;">선택중</span>'
+            : ''
+        }
+      </div>
+    `;
+  });
+
+  // 구분선
+  html += `
+    <div style="
+      height:1px;
+      background:#e2e8f0;
+      margin:4px 4px;
+    "></div>
+  `;
+
+  // 디버프 키워드
+  KEYWORD_DEBUFF_LIST.forEach(item => {
+    const isLocked = lockedEmoji && lockedEmoji === item.emoji;
+
+    const label = `${item.emoji} ${item.name}`;
+    const bg = isLocked ? '#f1f5f9' : '#fee2e2';
+    const color = isLocked ? '#94a3b8' : '#b91c1c';
+    const border = isLocked ? '#e2e8f0' : '#fecaca';
+
+    html += `
+      <div
+        class="deck-kw-opt-item"
+        data-emoji="${item.emoji}"
+        style="
+          padding:3px 4px;
+          border-radius:6px;
+          cursor:${isLocked ? 'not-allowed' : 'pointer'};
+          opacity:${isLocked ? '0.4' : '1'};
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          transition:background 0.15s;
+        "
+      >
+        <span
+          style="
+            background:${bg};
+            color:${color};
+            border:1px solid ${border};
+            padding:3px 9px;
+            border-radius:6px;
+            font-size:0.82rem;
+            font-weight:bold;
+            display:inline-flex;
+            align-items:center;
+            gap:4px;
+          "
+        >
+          ${label}
+        </span>
+
+        ${
+          isLocked
+            ? '<span style="font-size:0.68rem; color:#ef4444; font-weight:bold; margin-right:4px;">선택중</span>'
+            : ''
+        }
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+
+  menuEl.innerHTML = html;
+
+  menuEl.querySelectorAll('.deck-kw-opt-item').forEach(el => {
+    el.onmouseover = () => {
+      if (el.style.cursor !== 'not-allowed') {
+        el.style.background = '#f8fafc';
+      }
+    };
+
+    el.onmouseout = () => {
+      if (el.style.cursor !== 'not-allowed') {
+        el.style.background = 'transparent';
+      }
+    };
+
+    el.onclick = (e) => {
+      e.stopPropagation();
+
+      if (el.style.cursor === 'not-allowed') return;
+
+      onSelect(el.dataset.emoji);
+    };
+  });
+}
+
+
+function updateDeckKeywordFilterUI() {
+  const toolbar = document.querySelector('.deck-char-list-top-toolbar');
+  if (!toolbar) return;
+
+  const allKeywords = [
+    ...KEYWORD_BUFF_LIST,
+    ...KEYWORD_DEBUFF_LIST
+  ];
+
+  const isBuff = (emoji) =>
+    KEYWORD_BUFF_LIST.some(item => item.emoji === emoji);
+
+  ['kw1', 'kw2'].forEach(slotName => {
+    const dropdown = toolbar.querySelector(
+      `.deck-kw-dropdown[data-slot="${slotName}"]`
+    );
+
+    if (!dropdown) return;
+
+    const button = dropdown.querySelector('.deck-kw-dropdown-btn');
+    const labelEl = dropdown.querySelector('.deck-kw-label');
+
+    if (!button || !labelEl) return;
+
+    const selectedEmoji = deckKeywordFilterState[slotName];
+
+    if (selectedEmoji) {
+      const found = allKeywords.find(
+        item => item.emoji === selectedEmoji
+      );
+
+      const text = found
+        ? `${found.emoji} ${found.name}`
+        : selectedEmoji;
+
+      const buff = isBuff(selectedEmoji);
+
+      labelEl.innerHTML = `
+        <span
+          style="
+            background:${buff ? '#e0f2fe' : '#fee2e2'};
+            color:${buff ? '#0369a1' : '#b91c1c'};
+            border:1px solid ${buff ? '#bae6fd' : '#fecaca'};
+            padding:1px 6px;
+            border-radius:4px;
+            font-weight:800;
+          "
+        >
+          ${text}
+        </span>
+      `;
+
+      button.style.borderColor =
+        buff ? '#0284c7' : '#ef4444';
+
+    } else {
+      labelEl.textContent =
+        slotName === 'kw1' ? '키워드 1' : '키워드 2';
+
+      labelEl.style.color = '#2c3e50';
+      button.style.borderColor = '#3498db';
+    }
+  });
+
+  toolbar.querySelectorAll('.deck-kw-reset-btn').forEach(btn => {
+    const slotName = btn.dataset.slot;
+    const active = Boolean(deckKeywordFilterState[slotName]);
+
+    btn.style.opacity = active ? '1' : '0.25';
+    btn.style.pointerEvents = active ? 'auto' : 'none';
+    btn.style.color = active ? '#ef4444' : '#94a3b8';
+    btn.style.borderColor = active ? '#f87171' : '#cbd5e1';
+  });
+}
+
 window.initDeckUI = function() {
   initDecks();
   initUnassignZone();
+
+  // 덱 캐릭터 목록 키워드 필터 초기화
+  initDeckKeywordFilterUI();
 
   const resetBtn = document.getElementById('btn-reset-deck');
   if (resetBtn && !resetBtn.dataset.bound) {
@@ -219,11 +742,49 @@ function renderCharPool() {
   const container = document.getElementById('deck-char-pool');
   if (!container) return;
   container.innerHTML = '';
-  
-  const ownedChars = GameData.characters.filter(c => PlayerData.characters.includes(c.Character_ID));
-  
+
   const deck = PlayerData.decks[currentDeckIndex];
-  const deployedIds = deck ? [...deck.supporters, ...deck.strikers].filter(Boolean) : [];
+
+  const activeDeckKw1 = deckKeywordFilterState.kw1;
+  const activeDeckKw2 = deckKeywordFilterState.kw2;
+
+  const hasDeckKeyword = (char, targetEmoji) => {
+    if (!targetEmoji) return true;
+
+    const charKws = [
+      char.Character_Keyword_1,
+      char.Character_Keyword_2,
+      char.Character_Keyword_3,
+      char.Character_Keyword_4
+    ]
+      .filter(Boolean)
+      .map(k => String(k).trim());
+
+    return charKws.some(k => k === targetEmoji);
+  };
+
+  const ownedChars = GameData.characters.filter(char => {
+    // 보유 캐릭터만
+    if (!PlayerData.characters.includes(char.Character_ID)) {
+      return false;
+    }
+
+    // 키워드 1
+    if (activeDeckKw1 && !hasDeckKeyword(char, activeDeckKw1)) {
+      return false;
+    }
+
+    // 키워드 2
+    if (activeDeckKw2 && !hasDeckKeyword(char, activeDeckKw2)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const deployedIds = deck
+    ? [...deck.supporters, ...deck.strikers].filter(Boolean)
+    : [];
   
   function getNormName(name) {
     if (!name) return "";
