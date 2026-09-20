@@ -708,22 +708,65 @@
 </div>
 
 <div id="scene-deck" class="scene deck-scene">
-  <div class="deck-sort-nav" style="position: absolute; top: 20px; left: 50px; display: flex; gap: 10px; z-index: 100;">
-      <button id="btn-reset-deck" class="cancel-btn" style="padding: 10px 20px; font-size: 1.1rem;">초기화</button>
-      <div class="sort-dropdown-container">
-        <div class="sort-dropdown-btn" id="deck-sort-btn">
-          <span id="deck-sort-label">기본 정렬</span>
-          <span class="dropdown-arrow">▼</span>
-        </div>
-        <div class="sort-options" id="deck-sort-options">
-          <div class="sort-option" data-sort="default">기본 정렬</div>
-          <div class="sort-option" data-sort="level">레벨 순</div>
-          <div class="sort-option" data-sort="type">속성 순</div>
-          <div class="sort-option" data-sort="class">역할군 순</div>
-          
-        </div>
+  <div
+    class="deck-sort-nav deck-char-list-top-toolbar"
+    style="
+      position: absolute;
+      top: 20px;
+      left: 50px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 1100;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      height: 48px;
+      box-sizing: border-box;
+    "
+  >
+
+    <!-- 정렬 -->
+    <div
+      class="sort-dropdown-container"
+      style="
+        flex: 0 0 auto;
+        position: relative;
+        margin: 0;
+      "
+    >
+      <div class="sort-dropdown-btn" id="deck-sort-btn">
+        <span id="deck-sort-label">기본 정렬</span>
+        <span class="dropdown-arrow">▼</span>
+      </div>
+
+      <div class="sort-options" id="deck-sort-options">
+        <div class="sort-option" data-sort="default">기본 정렬</div>
+        <div class="sort-option" data-sort="level">레벨 순</div>
+        <div class="sort-option" data-sort="type">속성 순</div>
+        <div class="sort-option" data-sort="class">역할군 순</div>
       </div>
     </div>
+
+    <!-- 초기화 -->
+    <button
+      id="btn-reset-deck"
+      class="cancel-btn"
+      style="
+        position: relative;
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 6px 12px;
+        height: 40px;
+        font-size: 0.9rem;
+        line-height: 1;
+        box-sizing: border-box;
+        white-space: nowrap;
+      "
+    >
+      초기화
+    </button>
+
+  </div>
     <div class="top-nav">
     <div style="flex-grow: 1;"></div>
     <button class="circle-btn nav-btn btn-help">?</button>
