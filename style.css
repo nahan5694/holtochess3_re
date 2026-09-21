@@ -10271,7 +10271,111 @@ body, html {
   animation: conditionFloatUp 0.85s ease-out forwards;
 }
 
+/* =========================================
+   DECK SCENE - 상단 정렬/초기화/키워드 정렬 보정
+   ========================================= */
 
+.deck-scene .deck-sort-nav {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+
+  height: 50px !important;
+  min-height: 50px !important;
+
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+}
+
+/* 덱의 정렬 컨테이너는 flex 안에서 일반 요소로 처리 */
+.deck-scene .sort-dropdown-container {
+  position: relative !important;
+
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+
+  margin: 0 !important;
+
+  flex: 0 0 auto !important;
+  width: auto !important;
+
+  transform: none !important;
+}
+
+/* 정렬 버튼의 크기를 명확하게 고정 */
+.deck-scene .sort-dropdown-btn {
+  width: 160px !important;
+  height: 48px !important;
+
+  box-sizing: border-box !important;
+
+  margin: 0 !important;
+  padding: 0 20px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+
+  transform: none !important;
+}
+
+/* 정렬 메뉴는 버튼 바로 아래 */
+.deck-scene .sort-options {
+  top: calc(100% + 10px) !important;
+  left: 0 !important;
+
+  width: 160px !important;
+}
+
+/* 초기화 버튼 */
+.deck-scene #btn-reset-deck {
+  position: relative !important;
+
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+
+  transform: none !important;
+
+  flex: 0 0 auto !important;
+
+  height: 48px !important;
+  min-height: 48px !important;
+
+  box-sizing: border-box !important;
+
+  margin: 0 !important;
+  padding: 0 12px !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+/* 키워드 영역 */
+.deck-scene .deck-keyword-filter-wrapper {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+
+  height: 48px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  flex: 0 0 auto !important;
+
+  box-sizing: border-box !important;
+
+  transform: none !important;
+}
 
 
 
