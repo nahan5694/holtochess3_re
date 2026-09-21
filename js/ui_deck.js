@@ -103,15 +103,18 @@ window.resetDeckSort = function() {
 // =========================================
 
 function initDeckKeywordFilterUI() {
-  const sceneEl = document.getElementById('scene-deck');
-  if (!sceneEl) return;
+  const toolbar = document.getElementById('deck-toolbar');
 
-  // index.html에 이미 존재하는 상단 컨트롤 바 사용
-  const toolbar = sceneEl.querySelector('.deck-char-list-top-toolbar');
-  if (!toolbar) return;
+  // 현재 index.html에는 deck-toolbar라는 ID가 없으므로
+  // deck-sort-nav + deck-char-list-top-toolbar를 직접 찾는다.
+  const actualToolbar =
+    document.querySelector('#scene-deck .deck-sort-nav.deck-char-list-top-toolbar');
 
-  // 키워드 필터 UI가 이미 있으면 중복 생성하지 않음
-  let kwWrapper = toolbar.querySelector('.deck-keyword-filter-wrapper');
+  if (!actualToolbar) return;
+
+  let kwWrapper = actualToolbar.querySelector(
+    '.deck-keyword-filter-wrapper'
+  );
 
   if (!kwWrapper) {
     kwWrapper = document.createElement('div');
@@ -122,10 +125,11 @@ function initDeckKeywordFilterUI() {
       align-items: center;
       gap: 8px;
       flex: 0 0 auto;
-      margin: 0;
       height: 40px;
-      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       white-space: nowrap;
+      box-sizing: border-box;
     `;
 
     kwWrapper.innerHTML = `
@@ -168,7 +172,7 @@ function initDeckKeywordFilterUI() {
             "
           >
             <span class="deck-kw-label">키워드 1</span>
-            <span style="font-size:0.7rem; color:#7f8c8d;">▼</span>
+            <span style="font-size:0.7rem;color:#7f8c8d;">▼</span>
           </div>
 
           <div
@@ -181,12 +185,13 @@ function initDeckKeywordFilterUI() {
               width:170px;
               max-height:380px;
               overflow-y:auto;
-              background:#ffffff;
+              background:#fff;
               border:1px solid #cbd5e1;
               border-radius:8px;
               box-shadow:0 10px 25px rgba(0,0,0,0.18);
-              z-index:2000;
+              z-index:3000;
               padding:4px 0;
+              box-sizing:border-box;
             "
           ></div>
         </div>
@@ -198,6 +203,7 @@ function initDeckKeywordFilterUI() {
           style="
             width:24px;
             height:24px;
+            min-width:24px;
             padding:0;
             border-radius:50%;
             border:1px solid #cbd5e1;
@@ -208,7 +214,6 @@ function initDeckKeywordFilterUI() {
             display:flex;
             align-items:center;
             justify-content:center;
-            transition:all 0.15s;
             opacity:0.3;
             pointer-events:none;
             box-sizing:border-box;
@@ -255,7 +260,7 @@ function initDeckKeywordFilterUI() {
             "
           >
             <span class="deck-kw-label">키워드 2</span>
-            <span style="font-size:0.7rem; color:#7f8c8d;">▼</span>
+            <span style="font-size:0.7rem;color:#7f8c8d;">▼</span>
           </div>
 
           <div
@@ -268,12 +273,13 @@ function initDeckKeywordFilterUI() {
               width:170px;
               max-height:380px;
               overflow-y:auto;
-              background:#ffffff;
+              background:#fff;
               border:1px solid #cbd5e1;
               border-radius:8px;
               box-shadow:0 10px 25px rgba(0,0,0,0.18);
-              z-index:2000;
+              z-index:3000;
               padding:4px 0;
+              box-sizing:border-box;
             "
           ></div>
         </div>
@@ -285,6 +291,7 @@ function initDeckKeywordFilterUI() {
           style="
             width:24px;
             height:24px;
+            min-width:24px;
             padding:0;
             border-radius:50%;
             border:1px solid #cbd5e1;
@@ -295,7 +302,6 @@ function initDeckKeywordFilterUI() {
             display:flex;
             align-items:center;
             justify-content:center;
-            transition:all 0.15s;
             opacity:0.3;
             pointer-events:none;
             box-sizing:border-box;
@@ -304,15 +310,16 @@ function initDeckKeywordFilterUI() {
       </div>
     `;
 
-    // 정렬 → 초기화 다음에 키워드가 붙음
-    toolbar.appendChild(kwWrapper);
+    // 중요:
+    // 기존 정렬 버튼과 초기화 버튼은 절대 이동시키지 않는다.
+    // 키워드 UI만 기존 상단바의 맨 뒤에 추가한다.
+    actualToolbar.appendChild(kwWrapper);
 
     bindDeckKeywordFilterEvents();
   }
 
   updateDeckKeywordFilterUI();
 }
-
 
 function bindDeckKeywordFilterEvents() {
   const toolbar = document.querySelector('.deck-char-list-top-toolbar');
